@@ -3,7 +3,7 @@
 namespace EXider {
 	class Task {
 		boost::asio::io_service& m_io;
-		mutable boost::recursive_mutex m_mutexForResult;                                // Mutex to read or write resulting information
+        mutable boost::recursive_mutex m_mutexForResult;                                // Mutex to read or write resulting information
 		
 		const std::string m_taskName;
 		const size_t m_tID;
