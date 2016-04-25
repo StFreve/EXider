@@ -31,12 +31,12 @@ void Information::taskInformation( std::vector<size_t> tIDs ) {
 }
 
 void Information::pcList( size_t Status ) {
+    const int countInLine = 3;
     if ( Status & Available ) {
         std::cout << "Available PCs: " << std::endl;
-        int countInLine = 3;
         int counter = 0;
         for ( auto pc : m_client->m_freePC ) {
-            if ( counter = 3 ) {
+            if ( counter == countInLine ) {
                 std::cout << std::endl;
                 counter = 0;
             }
@@ -44,15 +44,15 @@ void Information::pcList( size_t Status ) {
                 std::cout << "\t";
             }
             std::cout << pc->getIP().to_string();
+            ++counter;
         }
         std::cout << std::endl;
     }
     if ( Status & Busy ) {
         std::cout << "Busy PCs: " << std::endl;
-        int countInLine = 3;
         int counter = 0;
         for ( auto pc : m_client->m_busyPC ) {
-            if ( counter = 3 ) {
+            if ( counter == countInLine ) {
                 std::cout << std::endl;
                 counter = 0;
             }
@@ -60,15 +60,15 @@ void Information::pcList( size_t Status ) {
                 std::cout << "\t";
             }
             std::cout << pc->getIP().to_string();
+            ++counter;
         }
         std::cout << std::endl;
     }
     if ( Status & NotConencted ) {
         std::cout << "Not connected PCs: " << std::endl;
-        int countInLine = 3;
         int counter = 0;
         for ( auto pc : m_client->m_notConnectedPC ) {
-            if ( counter = 3 ) {
+            if ( counter == countInLine ) {
                 std::cout << std::endl;
                 counter = 0;
             }
@@ -76,6 +76,7 @@ void Information::pcList( size_t Status ) {
                 std::cout << "\t";
             }
             std::cout << pc->getIP().to_string();
+            ++counter;
         }
         std::cout << std::endl;
     }

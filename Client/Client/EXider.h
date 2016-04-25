@@ -38,7 +38,7 @@ namespace EXider {
 
 	struct RPComparator;
 	typedef std::set<boost::shared_ptr<RemotePC>, RPComparator> PCList;
-
+    typedef std::vector<EXiderArgument> argList;
 }
 #include "CommandParser.h"
 #include "Logger.h"

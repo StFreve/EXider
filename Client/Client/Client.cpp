@@ -218,6 +218,9 @@ void Client::run() {
             else if ( arg[ 0 ].argument == "stop" ) {
 
             }
+            else if ( arg[ 0 ].argument == "discard" ) {
+
+            }
             else if ( arg[ 0 ].argument == "help" ) {
                 m_info.help( Information::CommandType::Task );
             }

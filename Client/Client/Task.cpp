@@ -49,7 +49,7 @@ const std::string Task::getInfromation() const {
     int countInLine = 3;										// IPs in one line
     int counter = 0;
     for ( auto pc : m_workingPCs ) {
-        if ( counter = 3 ) {
+        if ( counter == countInLine ) {
             sResult += "\n";
             counter = 0;
         }
@@ -57,6 +57,7 @@ const std::string Task::getInfromation() const {
             sResult += "\t";
         }
         sResult += pc->getIP().to_string();
+        ++counter;
     }
     return sResult;
 }
