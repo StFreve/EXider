@@ -9,8 +9,8 @@ namespace EXider {
         boost::function<void( boost::shared_ptr<RemotePC>, std::string )> m_callback;
 
         rpcStatus m_status;
-
         int m_id;
+        std::string reqToSend;
         // Async Wrtie, Read, Connecting Handlers
         void sendHandler( const boost::system::error_code& error );
         void readHandler( const boost::system::error_code& error, size_t bytes );

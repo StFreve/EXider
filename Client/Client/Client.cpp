@@ -299,7 +299,7 @@ void Client::startTask( const std::string& taskName, size_t taskID, const std::s
     //    commands.push_back( boost::str( boost::format( "Download %1" ) % 1) % URL )
     //}
 
-    commands.push_back( boost::str( boost::format( "Run %1 %2" ) % filePath % arguments ) );
+    commands.push_back( boost::str( boost::format( "Run %1% %2%" ) % filePath % arguments ) );
    
     m_tasks.push_back( boost::shared_ptr<Task>( new Task( m_io, listForTask, commands, taskName, taskID ) ) );
 

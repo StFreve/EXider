@@ -60,7 +60,13 @@ void Task::handler( boost::shared_ptr<RemotePC> fromPC, const std::string result
     std::istringstream iss( result );
     std::string command;
     iss >> command;
-    if ( command == "Reading" || command == "Writing" || command == "Downloading" ) {
+    if ( command == "Writing" ) {
+        iss >> command;
+        if ( command == "OK" ) {
+            
+        }
+    }
+    if (command == "Downloading" ) {                // Here commands, which only say, that they worked correctly
         iss >> command;
         if ( command == "OK" )
             ++m_workingStep[ fromPC->getID() ];
@@ -90,8 +96,10 @@ void Task::sendNextCommand( const boost::shared_ptr<RemotePC>& pc ) {
 
     assert( pcID < m_workingPCs.size() );
     assert( m_workingStep[ pcID ] <= m_commands.size() );
-    if ( m_workingStep[pcID] < m_commands.size() )
+    if ( m_workingStep[ pcID ] < m_commands.size() ) {
         pc->sendRequest( m_commands[ m_workingStep[ pc->getID() ] ] );
+        pc->readRequest();
+    }
     else if ( m_autoFree ) {
         m_workingPCs.erase( pc );
     }

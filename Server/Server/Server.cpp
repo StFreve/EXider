@@ -72,6 +72,7 @@ int Server::taskManager( const std::string& str ) { // TODO
         std::cerr << "Wrong command format" << std::endl;
         return -1;
     }
+    iss >> task;
     if ( task == "Run" ) {
         std::string path;
         std::string arguments;
