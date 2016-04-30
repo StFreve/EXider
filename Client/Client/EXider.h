@@ -11,6 +11,7 @@
 #include <boost\thread.hpp>
 #include <boost\regex.hpp>
 #include <boost\lexical_cast.hpp>
+#include <boost\format.hpp>
 namespace EXider {
     const size_t EXIDER_PORT = 8008;
     enum rpcStatus {	// RemotePC Statuses

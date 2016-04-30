@@ -1,34 +1,28 @@
 #include "EXider.h"
 using namespace EXider;
-Task::Task( boost::asio::io_service& io, const PCList& workingPCs, const std::string downloadURL, const std::string executeCommand, const std::string& taskName, int tID, bool autoFree ) :
-    m_workingPCs( workingPCs ), m_downloadsFiles( true ), m_result( workingPCs.size(), "-" ),
-    m_downloadURL( downloadURL ), m_executeCommand( executeCommand ), m_autoFree( autoFree ), m_io( io ),
-    m_thread( boost::bind( &Task::run, this ) ), m_taskName( taskName ), m_tID( tID ) {
+Task::Task( boost::asio::io_service& io, const PCList& workingPCs, const std::vector<std::string>& commands, const std::string& taskName, int tID, bool autoFree )
+    : m_io( io )
+    , m_mutexForResult()
+    , m_taskName( taskName )
+    , m_tID( tID )
+    , m_workingPCs( workingPCs )
+    , m_result( workingPCs.size(), "-" )
+    , m_workingStep( workingPCs.size(), 0 )
+    , m_commands( commands )
+    , m_autoFree( autoFree )
+    , m_thread( boost::bind( &Task::run, this ) ) {
     size_t pcID = 0;
     for ( auto pc : m_workingPCs ) {
         pc->setID( pcID++ );
         pc->setCallBackFunction( boost::bind( &Task::handler, this, _1, _2 ) );
     }
 }
-Task::Task( boost::asio::io_service& io, const PCList& workingPCs, const std::string executeCommand, const std::string& taskName, int tID, bool autoFree ) :
-    m_workingPCs( workingPCs ), m_downloadsFiles( false ), m_result( workingPCs.size(), "-" ),
-    m_executeCommand( executeCommand ), m_autoFree( autoFree ), m_io( io ),
-    m_thread( boost::bind( &Task::run, this ) ), m_taskName( taskName ), m_tID( tID ) {
-    size_t pcID = 0;
-    for ( auto pc : m_workingPCs ) {
-        pc->setID( pcID++ );
-        pc->setCallBackFunction( boost::bind( &Task::handler, this, _1, _2 ) );
-    }
-}
+
 void Task::run() {
     char request[ 256 ];
 
     for ( auto pc : m_workingPCs ) {
-        if ( m_downloadsFiles )
-            sprintf( request, "Download %s", m_downloadURL.c_str() );
-        else
-            sprintf( request, "Run %s -pcid %d", m_executeCommand.c_str(), pc->getID() );
-        pc->sendRequest( request );
+        sendNextCommand( pc );
     }
     m_io.run();
 }
@@ -66,40 +60,39 @@ void Task::handler( boost::shared_ptr<RemotePC> fromPC, const std::string result
     std::istringstream iss( result );
     std::string command;
     iss >> command;
-    if ( command == "Reading" ) {
+    if ( command == "Reading" || command == "Writing" || command == "Downloading" ) {
         iss >> command;
         if ( command == "OK" )
-            return;
-    }
-    else if ( command == "Writing" ) {
-        iss >> command;
-        if ( command == "OK" ) {
-            fromPC->readRequest();
-        }
-    }
-    else if ( command == "Connecting" ) {
-        iss >> command;
-        if ( command == "OK" )
-            return;
-    }
-    else if ( command == "Downloading" ) {
-        iss >> command;
-        if ( command == "OK" ) {
-            char request[ 256 ];
-            sprintf( request, "Run %s -pcid %d", m_executeCommand, fromPC->getID() );
-            fromPC->sendRequest( request );
+            ++m_workingStep[ fromPC->getID() ];
+        else if ( command == "Error" ) {
+            // TODO
         }
     }
     else if ( command == "Result" ) {
+        ++m_workingStep[ fromPC->getID() ];
+
         std::getline( iss, command );
         command = command.substr( command.find_first_not_of( ' ' ) );
         boost::recursive_mutex::scoped_lock lock( m_mutexForResult );
         m_result[ fromPC->getID() ] = command;
     }
+    sendNextCommand( fromPC );
 }
 const std::string& Task::getName() const {
     return m_taskName;
 }
 const size_t Task::getID() const {
     return m_tID;
+}
+
+void Task::sendNextCommand( const boost::shared_ptr<RemotePC>& pc ) {
+    const size_t pcID = pc->getID();
+
+    assert( pcID < m_workingPCs.size() );
+    assert( m_workingStep[ pcID ] <= m_commands.size() );
+    if ( m_workingStep[pcID] < m_commands.size() )
+        pc->sendRequest( m_commands[ m_workingStep[ pc->getID() ] ] );
+    else if ( m_autoFree ) {
+        m_workingPCs.erase( pc );
+    }
 }

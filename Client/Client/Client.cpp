@@ -293,9 +293,16 @@ void Client::startTask( const std::string& taskName, size_t taskID, const std::s
         m_busyPC.insert( *m_freePC.begin() );
         m_freePC.erase( m_freePC.begin() );
     }
-    if ( withoutSendingProgram ) {
-        m_tasks.push_back( boost::shared_ptr<Task>( new Task( m_io, listForTask, filePath + " " + arguments, taskName, taskID ) ) );
-    }
+    std::vector<std::string> commands;
+
+    //if ( !withoutSendingProgram ) {
+    //    commands.push_back( boost::str( boost::format( "Download %1" ) % 1) % URL )
+    //}
+
+    commands.push_back( boost::str( boost::format( "Run %1 %2" ) % filePath % arguments ) );
+   
+    m_tasks.push_back( boost::shared_ptr<Task>( new Task( m_io, listForTask, commands, taskName, taskID ) ) );
+
     m_info.print( "Task started." );
     // TODO
 }

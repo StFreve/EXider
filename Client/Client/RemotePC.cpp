@@ -47,8 +47,8 @@ void RemotePC::sendRequest( const std::string& request ) {
     else if ( m_status != Available )
         throw std::exception( "Connection ism't available" );
 
-    char reqToSend[ 256 ];
-    sprintf( reqToSend, "%s\n", request.c_str() );
+    std::string reqToSend = boost::str( boost::format( "ID %1 %2" ) % getID() % request );      // Adding ID to request
+
     m_socket.async_write_some( boost::asio::buffer( reqToSend ), boost::bind( &RemotePC::sendHandler, this, _1 ) );
 }
 void RemotePC::readRequest() {

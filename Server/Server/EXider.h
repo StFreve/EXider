@@ -16,6 +16,7 @@
 #include <boost\timer.hpp>
 #include <boost\process.hpp>
 #include <boost\filesystem.hpp>
+#include <boost\lexical_cast.hpp>
 namespace EXider {
 	// Variables, Enums and structs
 	const size_t PORT = 8008;
