@@ -1,7 +1,9 @@
 #include "Client.h"
 using namespace EXider;
-Client::Client( boost::asio::io_service & io ) :
-    m_io( io ), m_info( this ), m_nextTaskID( 0 ) {
+Client::Client( boost::asio::io_service & io )
+    : m_io( io )
+    , m_info( this )
+    , m_nextTaskID( 0 ) {
 
 }
 
