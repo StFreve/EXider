@@ -179,9 +179,10 @@ void Client::run() {
                     m_info.taskInformation( tIDs );
                 }
             }
-            else if ( arg[ 0 ].argument == "start" ) {
+            else if ( arg[ 0 ].argument == "new" ) {
                 bool badArgument = false;
                 bool moreThanOneName = false;
+                bool startAfterCreating = false;
                 int computersWillBeUsed = 1;
                 std::string programArguments = "";
                 std::string programPath = "";
@@ -206,6 +207,9 @@ void Client::run() {
                         moreThanOneName |= !taskName.empty();
                         taskName = arg[ i ].parameters[ 0 ];
                     }
+                    else if ( ( arg[ i ].argument == "s" || arg[ i ].argument == "start" ) && arg[ i ].parameters.empty() ) {
+                        startAfterCreating = true;
+                    }
                     else {
                         m_info.wrongArgument( arg[ i ].argument );
                         badArgument = true;
@@ -214,14 +218,47 @@ void Client::run() {
                 }
                 if ( badArgument )
                     continue;
-                startTask( ( taskName.empty() ? std::string( "Task " ) + boost::lexical_cast<std::string>( m_nextTaskID ) : taskName ), m_nextTaskID, programPath, programArguments, computersWillBeUsed, withoutSending );
+                newTask( ( taskName.empty() ? std::string( "Task " ) + boost::lexical_cast<std::string>( m_nextTaskID ) : taskName ), m_nextTaskID, programPath, programArguments, computersWillBeUsed, startAfterCreating, withoutSending );
                 ++m_nextTaskID;
             }
-            else if ( arg[ 0 ].argument == "stop" ) {
-
-            }
-            else if ( arg[ 0 ].argument == "discard" ) {
-
+            else if ( arg[ 0 ].argument == "start" || arg[ 0 ].argument == "stop" || arg[ 0 ].argument == "discard" ) {
+                std::set<boost::shared_ptr<Task> > taskList;
+                bool badArgument = false;
+                for ( size_t i = 1; i < arg.size(); ++i ) {
+                    if ( arg[ i ].argument == "id" ) {
+                        for ( size_t id_i = 0; id_i < arg[ i ].parameters.size(); ++id_i ) {
+                            size_t idToFind = std::atoi( arg[ i ].parameters[ id_i ].c_str() );
+                            for ( size_t i = 0; i < m_tasks.size(); ++i ) {
+                                if ( m_tasks[ i ]->getID() == idToFind ) {
+                                    taskList.insert( m_tasks[ i ] );
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    else if ( arg[ i ].argument == "n" || arg[ i ].argument == "name" ) {
+                        for ( size_t name_i = 0; name_i < arg[ i ].parameters.size(); ++name_i ) {
+                            for ( size_t i = 0; i < m_tasks.size(); ++i ) {
+                                if ( m_tasks[ i ]->getName() == arg[ i ].parameters[ name_i ] ) {
+                                    taskList.insert( m_tasks[ i ] );
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        m_info.wrongArgument( arg[ i ].argument );
+                        badArgument = true;
+                        break;
+                    }
+                }
+                if ( badArgument )
+                    continue;
+                if ( arg[ 0 ].argument == "start" )
+                    startTasks( taskList );
+                else if ( arg[ 0 ].argument == "stop" )
+                    stopTasks( taskList );
+                else if ( arg[ 0 ].argument == "discard" )
+                    discardTasks( taskList );
             }
             else if ( arg[ 0 ].argument == "help" ) {
                 m_info.help( Information::CommandType::Task );
@@ -284,7 +321,7 @@ void Client::saveRemotePCs( const std::string& fileToSave ) {
     }
 }
 
-void Client::startTask( const std::string& taskName, size_t taskID, const std::string & filePath, const std::string & arguments, int computersToUse, bool withoutSendingProgram ) {
+void Client::newTask( const std::string& taskName, size_t taskID, const std::string & filePath, const std::string & arguments, int computersToUse, bool startAfterCreating, bool withoutSendingProgram ) {
     if ( computersToUse > m_freePC.size() ) {
         m_info.error( std::string( "Not enough computers to process current task. " ) + boost::lexical_cast<std::string>( m_freePC.size() ) + " available." );
         return;
@@ -302,26 +339,49 @@ void Client::startTask( const std::string& taskName, size_t taskID, const std::s
     //}
 
     commands.push_back( boost::str( boost::format( "Run %1% %2%" ) % filePath % arguments ) );
-   
+
     m_tasks.push_back( boost::shared_ptr<Task>( new Task( m_io, listForTask, commands, taskName, taskID ) ) );
 
-    m_info.print( "Task started." );
+    m_info.print( str( boost::format( "Task '%1%' created." ) % m_tasks.back()->getFullName() ) );
+
+    if ( startAfterCreating ) {
+        startTask( m_tasks.back() );
+    }
     // TODO
 }
-void Client::stopTask( size_t tID ) {
-    for ( auto task : m_tasks ) {
-        if ( task->getID() == tID ) {
-            task->stop();
-            m_info.print( "Task was stopped." );
+inline void Client::startTask( boost::shared_ptr<Task>& task ) {
+    task->start();
+}
+inline void Client::stopTask( boost::shared_ptr<Task>& task ) {
+    task->stop();
+}
+inline void Client::discardTask( boost::shared_ptr<Task>& task ) {
+    // TODO: Task Deleting needs improving
+    task->stop();
+    const PCList& pcToRestore( task->getPCList() );
+    for (auto pc : pcToRestore ) {
+        m_freePC.insert( pc );
+        m_busyPC.erase( pc );
+    }
+
+    for ( size_t i = 0; i < m_tasks.size(); ++i ) {
+        if ( task == m_tasks[ i ] ) {
+            m_tasks.erase( m_tasks.begin() + i );
         }
     }
 }
-void Client::discardTask( size_t tID ) {
-    for ( int i = 0; i < m_tasks.size(); ++i ) {
-        if ( m_tasks[ i ]->getID() == tID ) {
-            m_tasks.erase( m_tasks.begin() + i );
-            m_info.print( "Task was discarded." );
-            break;
-        }
+void Client::startTasks( std::set<boost::shared_ptr<Task> >& taskList ) {
+    for ( auto task : taskList ) {
+       startTask( task );
+    }
+}
+void Client::stopTasks( std::set<boost::shared_ptr<Task> >& taskList ) {
+    for ( auto task : taskList ) {
+        stopTask( task );
+    }
+}
+void Client::discardTasks( std::set<boost::shared_ptr<Task> >& taskList ) {
+    for ( auto task : taskList ) {
+        discardTask( task );
     }
 }

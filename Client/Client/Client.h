@@ -22,8 +22,12 @@ namespace EXider {
         void deleteRemotePCs( const std::vector<boost::asio::ip::address>&  IP );
         void saveRemotePCs( const std::string& fileToSave );
         // Tasks
-        void startTask( const std::string& taskName, size_t taskID, const std::string& filePath, const std::string& arguments, int computersToUse, bool withoutSendingProgram );
-        void stopTask( size_t tID );
-        void discardTask( size_t tID );
+        void newTask( const std::string& taskName, size_t taskID, const std::string& filePath, const std::string& arguments, int computersToUse,bool startAfterCreating, bool withoutSendingProgram );
+        void startTasks( std::set<boost::shared_ptr<Task> >& tasksToStart );
+        void stopTasks( std::set<boost::shared_ptr<Task> >& tasksToStart );
+        void discardTasks( std::set<boost::shared_ptr<Task> >& tasksToStart );
+        inline void startTask( boost::shared_ptr<Task>& taskToStart );
+        inline void stopTask( boost::shared_ptr<Task>& taskToStop );
+        inline void discardTask( boost::shared_ptr<Task>& taskToStop );
     };
 }

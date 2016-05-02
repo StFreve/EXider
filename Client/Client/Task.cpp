@@ -10,7 +10,7 @@ Task::Task( boost::asio::io_service& io, const PCList& workingPCs, const std::ve
     , m_workingStep( workingPCs.size(), 0 )
     , m_commands( commands )
     , m_autoFree( autoFree )
-    , m_thread( boost::bind( &Task::run, this ) ) {
+    , m_thread() {
     size_t pcID = 0;
     for ( auto pc : m_workingPCs ) {
         pc->setID( pcID++ );
@@ -25,6 +25,11 @@ void Task::run() {
         sendNextCommand( pc );
     }
     m_io.run();
+}
+void Task::start() {
+    if ( m_thread.get() == nullptr ) {  // Creating thread, if it wasn't already created.
+        m_thread.reset( new  boost::thread( boost::bind( &Task::run, this ) ) );
+    }
 }
 void Task::stop() {
     for ( auto pc : m_workingPCs ) {
@@ -63,10 +68,10 @@ void Task::handler( boost::shared_ptr<RemotePC> fromPC, const std::string result
     if ( command == "Writing" ) {
         iss >> command;
         if ( command == "OK" ) {
-            
+
         }
     }
-    if (command == "Downloading" ) {                // Here commands, which only say, that they worked correctly
+    if ( command == "Downloading" ) {                // Here commands, which only say, that they worked correctly
         iss >> command;
         if ( command == "OK" )
             ++m_workingStep[ fromPC->getID() ];
@@ -90,7 +95,12 @@ const std::string& Task::getName() const {
 const size_t Task::getID() const {
     return m_tID;
 }
-
+const std::string Task::getFullName() const {
+    return str( boost::format( "[%1%] %2%" ) % m_tID % m_taskName );
+}
+const PCList Task::getPCList() const {
+    return m_workingPCs;
+}
 void Task::sendNextCommand( const boost::shared_ptr<RemotePC>& pc ) {
     const size_t pcID = pc->getID();
 

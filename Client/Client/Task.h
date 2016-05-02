@@ -16,14 +16,19 @@ namespace EXider {
 
         void handler( boost::shared_ptr<RemotePC> fromPC, std::string result );	        // call-back function for RemotePC
         void sendNextCommand( const boost::shared_ptr<RemotePC>& pc );
-        boost::thread m_thread;
+       
+        boost::shared_ptr<boost::thread> m_thread;
+        
+        void run();
     public:
         Task( boost::asio::io_service& io, const PCList& workingPCs, const std::vector<std::string>& commands, const std::string& taskName, int tID, bool autoFree = 0 );
-        void run();
+        void start();
         void stop();
         const std::string getResult( const std::string& delimeter = " " ) const;
         const std::string getInfromation() const;
         const std::string& getName() const;
         const size_t getID() const;
+        const std::string getFullName() const;
+        const PCList getPCList() const;
     };
 }
