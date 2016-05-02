@@ -183,6 +183,7 @@ void Client::run() {
                 bool badArgument = false;
                 bool moreThanOneName = false;
                 bool startAfterCreating = false;
+                bool autoFree = false;
                 int computersWillBeUsed = 1;
                 std::string programArguments = "";
                 std::string programPath = "";
@@ -203,6 +204,9 @@ void Client::run() {
                     else if ( ( arg[ i ].argument == "ws" || arg[ i ].argument == "without-sending" ) && arg[ i ].parameters.empty() ) {
                         withoutSending = true;
                     }
+                    else if ( ( arg[ i ].argument == "f" || arg[ i ].argument == "auto-free" ) && arg[ i ].parameters.empty() ) {
+                        autoFree = true;
+                    }
                     else if ( ( arg[ i ].argument == "n" || arg[ i ].argument == "name" ) && arg[ i ].parameters.size() == 1 ) {
                         moreThanOneName |= !taskName.empty();
                         taskName = arg[ i ].parameters[ 0 ];
@@ -218,7 +222,7 @@ void Client::run() {
                 }
                 if ( badArgument )
                     continue;
-                newTask( ( taskName.empty() ? std::string( "Task " ) + boost::lexical_cast<std::string>( m_nextTaskID ) : taskName ), m_nextTaskID, programPath, programArguments, computersWillBeUsed, startAfterCreating, withoutSending );
+                newTask( ( taskName.empty() ? std::string( "Task " ) + boost::lexical_cast<std::string>( m_nextTaskID ) : taskName ), m_nextTaskID, programPath, programArguments, computersWillBeUsed, autoFree, startAfterCreating, withoutSending );
                 ++m_nextTaskID;
             }
             else if ( arg[ 0 ].argument == "start" || arg[ 0 ].argument == "stop" || arg[ 0 ].argument == "discard" ) {
@@ -321,7 +325,7 @@ void Client::saveRemotePCs( const std::string& fileToSave ) {
     }
 }
 
-void Client::newTask( const std::string& taskName, size_t taskID, const std::string & filePath, const std::string & arguments, int computersToUse, bool startAfterCreating, bool withoutSendingProgram ) {
+void Client::newTask( const std::string& taskName, size_t taskID, const std::string & filePath, const std::string & arguments, int computersToUse, bool autoFree, bool startAfterCreating, bool withoutSendingProgram ) {
     if ( computersToUse > m_freePC.size() ) {
         m_info.error( std::string( "Not enough computers to process current task. " ) + boost::lexical_cast<std::string>( m_freePC.size() ) + " available." );
         return;
@@ -340,7 +344,7 @@ void Client::newTask( const std::string& taskName, size_t taskID, const std::str
 
     commands.push_back( boost::str( boost::format( "Run %1% %2%" ) % filePath % arguments ) );
 
-    m_tasks.push_back( boost::shared_ptr<Task>( new Task( m_io, listForTask, commands, taskName, taskID ) ) );
+    m_tasks.push_back( boost::shared_ptr<Task>( new Task( m_io,boost::bind(&Client::freeRemotePC, this, _1), listForTask, commands, taskName, taskID, autoFree ) ) );
 
     m_info.print( str( boost::format( "Task '%1%' created." ) % m_tasks.back()->getFullName() ) );
 
@@ -348,6 +352,11 @@ void Client::newTask( const std::string& taskName, size_t taskID, const std::str
         startTask( m_tasks.back() );
     }
     // TODO
+}
+void Client::freeRemotePC( const boost::shared_ptr<RemotePC>& pc ) {
+    if ( m_busyPC.erase( pc ) ) { // If wasn't already deleted from the PC list
+        m_freePC.insert( pc );
+    }
 }
 inline void Client::startTask( boost::shared_ptr<Task>& task ) {
     task->start();
@@ -358,12 +367,6 @@ inline void Client::stopTask( boost::shared_ptr<Task>& task ) {
 inline void Client::discardTask( boost::shared_ptr<Task>& task ) {
     // TODO: Task Deleting needs improving
     task->stop();
-    const PCList& pcToRestore( task->getPCList() );
-    for (auto pc : pcToRestore ) {
-        m_freePC.insert( pc );
-        m_busyPC.erase( pc );
-    }
-
     for ( size_t i = 0; i < m_tasks.size(); ++i ) {
         if ( task == m_tasks[ i ] ) {
             m_tasks.erase( m_tasks.begin() + i );

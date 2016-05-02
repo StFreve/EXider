@@ -4,7 +4,8 @@ namespace EXider {
     class Task {
         boost::asio::io_service& m_io;
         mutable boost::recursive_mutex m_mutexForResult;                                // Mutex to read or write resulting information
-
+        boost::function<void( const boost::shared_ptr<RemotePC>& ) > m_freePC;          // Function to free RemotePC
+     
         const std::string m_taskName;
         const size_t m_tID;
         PCList m_workingPCs;                                                            // PC's working on the task
@@ -21,7 +22,8 @@ namespace EXider {
         
         void run();
     public:
-        Task( boost::asio::io_service& io, const PCList& workingPCs, const std::vector<std::string>& commands, const std::string& taskName, int tID, bool autoFree = 0 );
+        Task( boost::asio::io_service& io, boost::function<void( const boost::shared_ptr<RemotePC>&)> freePC, const PCList& workingPCs, const std::vector<std::string>& commands, const std::string& taskName, int tID, bool autoFree = 0 );
+        ~Task();
         void start();
         void stop();
         const std::string getResult( const std::string& delimeter = " " ) const;

@@ -1,7 +1,8 @@
 #include "EXider.h"
 using namespace EXider;
-Task::Task( boost::asio::io_service& io, const PCList& workingPCs, const std::vector<std::string>& commands, const std::string& taskName, int tID, bool autoFree )
+Task::Task( boost::asio::io_service& io, boost::function<void( const boost::shared_ptr<RemotePC>& )> freePC, const PCList& workingPCs, const std::vector<std::string>& commands, const std::string& taskName, int tID, bool autoFree )
     : m_io( io )
+    , m_freePC(freePC)
     , m_mutexForResult()
     , m_taskName( taskName )
     , m_tID( tID )
@@ -15,6 +16,11 @@ Task::Task( boost::asio::io_service& io, const PCList& workingPCs, const std::ve
     for ( auto pc : m_workingPCs ) {
         pc->setID( pcID++ );
         pc->setCallBackFunction( boost::bind( &Task::handler, this, _1, _2 ) );
+    }
+}
+Task::~Task() {
+    for ( auto pc : m_workingPCs ) {
+        m_freePC( pc );
     }
 }
 
@@ -67,9 +73,9 @@ void Task::handler( boost::shared_ptr<RemotePC> fromPC, const std::string result
     iss >> command;
     if ( command == "Writing" ) {
         iss >> command;
-        if ( command == "OK" ) {
-
-        }
+        if ( command != "OK" ) 
+            std::cerr << "Error in Writing" << std::endl;
+        return;
     }
     if ( command == "Downloading" ) {                // Here commands, which only say, that they worked correctly
         iss >> command;
@@ -111,6 +117,7 @@ void Task::sendNextCommand( const boost::shared_ptr<RemotePC>& pc ) {
         pc->readRequest();
     }
     else if ( m_autoFree ) {
+        m_freePC( pc );
         m_workingPCs.erase( pc );
     }
 }
