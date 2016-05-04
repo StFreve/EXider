@@ -13,7 +13,7 @@ namespace EXider {
 		Information( const Client* client );
 		
 		void taskList();                                            // List of tasks with results
-		void taskInformation(  std::vector<size_t> tIDs );          // Full information about tasks
+		void taskInformation(const std::set<boost::shared_ptr<EXider::Task> >& taskList );          // Full information about tasks
 
 		void pcList( size_t Status = Available);                    // List of RemotePCs
 

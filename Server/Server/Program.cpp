@@ -4,7 +4,9 @@ Program::Program( const std::string& fileName, const std::string& path, const st
     m_fileName( fileName ), m_path( path.empty() ? boost::filesystem::current_path().string() + "\\" : path ) {
     deleteWhitespaces( m_fileName );
     deleteWhitespaces( m_path );
-
+    if ( m_path.back() != '/' ) {
+        m_path.push_back( '/' );
+    }
     parseArguments( arguments );
 
 }

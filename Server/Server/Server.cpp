@@ -55,12 +55,15 @@ std::string Server::read_request() {
 }
 
 void Server::send_request( int id, std::string message ) {
+    std::cerr << "Send message: " << message << std::endl;
     char messageToSend[ 256 ];
     sprintf( messageToSend, "Result %s\n", message.c_str() );
     boost::asio::write( *m_socket, boost::asio::buffer( messageToSend ) );
 }
 
 int Server::taskManager( const std::string& str ) { // TODO
+    std::cerr << "Get command: " << str << std::endl;
+
     std::istringstream iss( str );
     std::string task;
     iss >> task;
@@ -74,11 +77,22 @@ int Server::taskManager( const std::string& str ) { // TODO
     }
     iss >> task;
     if ( task == "Run" ) {
-        std::string path;
+        std::string fullPath;
         std::string arguments;
-        iss >> path;
+        iss >> fullPath;
         std::getline( iss, arguments );
-        Program prog( path, "", arguments + "-pcid " + boost::lexical_cast<std::string>( pcID ) );
+
+        std::string filePath, fileName;
+        size_t lastSlashPos = fullPath.find_last_of( '/' );
+        if ( lastSlashPos == std::string::npos ) {
+            fileName = fullPath;
+        }
+        else {
+            filePath = fullPath.substr( 0, lastSlashPos + 1 );
+            fileName = fullPath.substr( lastSlashPos + 1 );
+        }
+        std::cerr << boost::format( "Run Program\nName: %1%\nPath: %2%\nArguments: %3%" ) % fileName % filePath % arguments << std::endl;
+        Program prog( fileName, filePath, arguments + "-pcid " + boost::lexical_cast<std::string>( pcID ) );
         m_executor.addProgram( 0, prog );
     }
     else if ( task == "Stop" ) {

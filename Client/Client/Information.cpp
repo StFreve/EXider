@@ -10,24 +10,12 @@ void Information::taskList() {
         print( std::string( "[" ) + boost::lexical_cast<std::string>( task->getID() ) + "] " + task->getName() + " result: " + task->getResult() );
     }
 }
-void Information::taskInformation( std::vector<size_t> tIDs ) {
-    if ( tIDs.empty() ) {
+void Information::taskInformation(const std::set<boost::shared_ptr<EXider::Task> >& taskList ) {
+    if ( taskList.empty() ) {
         return;
     }
-    std::sort( tIDs.begin(), tIDs.end() );
-    size_t tIDi = 0;
-    for ( auto task : m_client->m_tasks ) {
-        if ( task->getID() == tIDs[ tIDi ] ) {
-            print( task->getInfromation() );
-            if ( ++tIDi >= tIDs.size() )
-                break;
-        }
-        else if ( task->getID() > tIDs[ tIDi ] ) {
-            warning( std::string( "No task with ID " ) + boost::lexical_cast<std::string>( tIDs[ tIDi ] ) + " was found." );
-            if ( ++tIDi >= tIDs.size() )
-                break;
-        }
-    }
+    for ( auto task : taskList )
+        print( task->getInfromation() );
 }
 
 void Information::pcList( size_t Status ) {

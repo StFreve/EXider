@@ -50,7 +50,7 @@ const std::string Task::getResult( const std::string& delimeter ) const {
     return sResult;
 }
 const std::string Task::getInfromation() const {
-    std::string sResult = std::string( "Task: " ) + getName() + "\nID: " + boost::lexical_cast<std::string>( getID() ) + "\nResult: " + getResult() + "\nPCs in Task:";
+    std::string sResult = std::string( "Task: " ) + getName() + "\nID: " + boost::lexical_cast<std::string>( getID() ) + "\nResult: " + getResult() + "\nPCs in Task:\n";
     int countInLine = 3;										// IPs in one line
     int counter = 0;
     for ( auto pc : m_workingPCs ) {
@@ -110,7 +110,7 @@ const PCList Task::getPCList() const {
 void Task::sendNextCommand( const boost::shared_ptr<RemotePC>& pc ) {
     const size_t pcID = pc->getID();
 
-    assert( pcID < m_workingPCs.size() );
+    assert( pcID < m_workingStep.size() );
     assert( m_workingStep[ pcID ] <= m_commands.size() );
     if ( m_workingStep[ pcID ] < m_commands.size() ) {
         pc->sendRequest( m_commands[ m_workingStep[ pc->getID() ] ] );

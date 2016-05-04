@@ -149,35 +149,10 @@ void Client::run() {
             if ( arg.empty() ) {
                 std::cout << "No arguments of command \"task\"" << std::endl;
             }
-            else if ( arg[ 0 ].argument == "status" ) {
-                if ( arg.size() != 1 ) {
-                    std::cout << "Invalid arguments." << std::endl;
-                }
-                if ( arg[ 0 ].parameters.empty() ) {
+            else if ( arg[ 0 ].argument == "status" && arg.size() == 1) {
+               
                     m_info.taskList();
-                }
-                else {
-                    bool notAllProcessed = false;
-                    std::vector<size_t> tIDs;
-                    for ( int i = 0; i < arg[ 0 ].parameters.size(); ++i ) {
-                        bool badNumber = false;
-                        for ( int j = 0; j < arg[ 0 ].parameters[ i ].size(); ++j ) {
-                            if ( arg[ 0 ].parameters[ i ][ j ] > '9' || arg[ 0 ].parameters[ i ][ j ] < '0' ) {
-                                notAllProcessed = badNumber = true;
-                                break;
-                            }
-                        }
-                        if ( badNumber )
-                            continue;
-                        std::istringstream iss( arg[ 0 ].parameters[ i ] );
-                        tIDs.push_back( 0 );
-                        iss >> tIDs.back();
-                    }
-                    if ( notAllProcessed ) {
-                        std::cout << "Warning! Not all Tasks will be processed." << std::endl;
-                    }
-                    m_info.taskInformation( tIDs );
-                }
+               
             }
             else if ( arg[ 0 ].argument == "new" ) {
                 bool badArgument = false;
@@ -225,28 +200,42 @@ void Client::run() {
                 newTask( ( taskName.empty() ? std::string( "Task " ) + boost::lexical_cast<std::string>( m_nextTaskID ) : taskName ), m_nextTaskID, programPath, programArguments, computersWillBeUsed, autoFree, startAfterCreating, withoutSending );
                 ++m_nextTaskID;
             }
-            else if ( arg[ 0 ].argument == "start" || arg[ 0 ].argument == "stop" || arg[ 0 ].argument == "discard" ) {
+            else if ( arg[ 0 ].argument == "start" || arg[ 0 ].argument == "stop" || arg[ 0 ].argument == "discard" || arg[0].argument == "status") {
+              
                 std::set<boost::shared_ptr<Task> > taskList;
                 bool badArgument = false;
                 for ( size_t i = 1; i < arg.size(); ++i ) {
                     if ( arg[ i ].argument == "id" ) {
                         for ( size_t id_i = 0; id_i < arg[ i ].parameters.size(); ++id_i ) {
                             size_t idToFind = std::atoi( arg[ i ].parameters[ id_i ].c_str() );
+                            bool taskFound = false;
                             for ( size_t i = 0; i < m_tasks.size(); ++i ) {
                                 if ( m_tasks[ i ]->getID() == idToFind ) {
                                     taskList.insert( m_tasks[ i ] );
+                                    taskFound = true;
                                     break;
                                 }
                             }
+
+                            if ( !taskFound )
+                                m_info.warning( boost::str( boost::format( "Task with ID '%1%' wasn't found!" ) % idToFind ) );
+                            
                         }
                     }
                     else if ( arg[ i ].argument == "n" || arg[ i ].argument == "name" ) {
                         for ( size_t name_i = 0; name_i < arg[ i ].parameters.size(); ++name_i ) {
+                            std::string nameToFind = arg[ i ].parameters[ name_i ];
+                            bool taskFound = false;
                             for ( size_t i = 0; i < m_tasks.size(); ++i ) {
                                 if ( m_tasks[ i ]->getName() == arg[ i ].parameters[ name_i ] ) {
                                     taskList.insert( m_tasks[ i ] );
+                                    taskFound = true;
                                 }
                             }
+
+                            if ( !taskFound )
+                                m_info.warning( boost::str( boost::format( "Task with name '%1%' wasn't found!" ) % nameToFind ) );
+
                         }
                     }
                     else {
@@ -263,6 +252,8 @@ void Client::run() {
                     stopTasks( taskList );
                 else if ( arg[ 0 ].argument == "discard" )
                     discardTasks( taskList );
+                else if ( arg[ 0 ].argument == "status" )
+                    m_info.taskInformation( taskList );
             }
             else if ( arg[ 0 ].argument == "help" ) {
                 m_info.help( Information::CommandType::Task );
