@@ -3,12 +3,16 @@
 namespace EXider {
 	class Server :public boost::noncopyable {
 		// Variables
+        boost::asio::io_service& m_io;
+        boost::shared_ptr<boost::asio::ip::tcp::socket> m_socket;
+        boost::asio::ip::tcp::acceptor m_acceptor;
+        boost::recursive_mutex m_send_mutex;
+
+        FtpClient m_ftp;
 		ProgramExecutor m_executor;
 		std::queue<std::pair<int, std::string> > m_messagesToSend;
-		boost::asio::io_service& m_io;
-		boost::shared_ptr<boost::asio::ip::tcp::socket> m_socket;
-		boost::asio::ip::tcp::acceptor m_acceptor;
-		boost::recursive_mutex m_send_mutex;
+	
+		
 
 		boost::thread taskThread;
 		boost::thread resultSenderThread;

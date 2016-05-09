@@ -8,7 +8,6 @@ Program::Program( const std::string& fileName, const std::string& path, const st
         m_path.push_back( '/' );
     }
     parseArguments( arguments );
-
 }
 Program::Program( const std::string& fileName, const std::string& path ) : Program( fileName, path, "" ) {
 

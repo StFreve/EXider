@@ -2,16 +2,23 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <set>
 #include <list>
 #include <exception>
+
+// Boost
 #include <boost\asio.hpp>
 #include <boost\thread.hpp>
 #include <boost\regex.hpp>
 #include <boost\lexical_cast.hpp>
 #include <boost\format.hpp>
+#include <boost\filesystem.hpp>
+// Poco
+#include <Poco\Net\FTPClientSession.h>
+#include <Poco\StreamCopier.h>
 namespace EXider {
     const size_t EXIDER_PORT = 8008;
     enum rpcStatus {	// RemotePC Statuses

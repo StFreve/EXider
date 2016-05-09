@@ -9,7 +9,7 @@ namespace EXider {
         boost::function<void( boost::shared_ptr<RemotePC>, std::string )> m_callback;
 
         rpcStatus m_status;
-        int m_id;
+        size_t m_id;
         std::string reqToSend;
         // Async Wrtie, Read, Connecting Handlers
         void sendHandler( const boost::system::error_code& error );
@@ -32,7 +32,7 @@ namespace EXider {
         void setCallBackFunction( const boost::function<void( boost::shared_ptr<RemotePC>, std::string )>& cb );
 
         boost::shared_ptr<RemotePC> getSelfPtr();               // Self Pointer
-        const int getID() const;                                // PC's ID in current Task
+        const size_t getID() const;                                // PC's ID in current Task
         inline const boost::asio::ip::address getIP() const;    // IP's IP address
         bool operator==( const RemotePC& rhrp ) const;
         bool operator<( const RemotePC& rhrp ) const;

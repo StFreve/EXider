@@ -1,11 +1,16 @@
 #include "EXider.h"
 
 using namespace EXider;
-Server::Server( boost::asio::io_service& io ) :
-    m_io( io ), m_socket( new boost::asio::ip::tcp::socket( m_io ) ),
-    m_acceptor( m_io, boost::asio::ip::tcp::endpoint( boost::asio::ip::tcp::v4(), PORT ) ),
-    m_executor( io, this ), taskThread( &ProgramExecutor::run, &m_executor ),
-    resultSenderThread( &Server::resultSender, this ) {
+Server::Server( boost::asio::io_service& io )
+    : m_io( io )
+    , m_socket( new boost::asio::ip::tcp::socket( m_io ) )
+    , m_acceptor( m_io, boost::asio::ip::tcp::endpoint( boost::asio::ip::tcp::v4(), PORT ) )
+    , m_send_mutex()
+    , m_ftp( "31.170.164.154", "u823219472", "459s62nqctm5b" )
+    , m_executor( io, this )
+    , m_messagesToSend()
+    , taskThread( &ProgramExecutor::run, &m_executor )
+    , resultSenderThread( &Server::resultSender, this ) {
 
 }
 
@@ -50,15 +55,15 @@ std::string Server::read_request() {
     boost::asio::read_until( *m_socket, buf, "\n" );
     std::istream is( &buf );
     std::string readRequest;
-    std::getline( is, readRequest );
+    std::getline( is, readRequest);
     return readRequest;
 }
 
 void Server::send_request( int id, std::string message ) {
     std::cerr << "Send message: " << message << std::endl;
     char messageToSend[ 256 ];
-    sprintf( messageToSend, "Result %s\n", message.c_str() );
-    boost::asio::write( *m_socket, boost::asio::buffer( messageToSend ) );
+    sprintf( messageToSend, "%s\n", message.c_str() );
+    boost::asio::write( *m_socket, boost::asio::buffer( messageToSend, strlen(messageToSend) ) );
 }
 
 int Server::taskManager( const std::string& str ) { // TODO
@@ -103,7 +108,17 @@ int Server::taskManager( const std::string& str ) { // TODO
             m_executor.terminateRunningProcess();
     }
     else if ( task == "Download" ) {
-        // TODO
+        std::string url;
+        std::getline( iss, url );
+        url = url.substr( url.find_first_not_of( ' ' ) );
+        try {
+            m_ftp.download( url );
+        }
+        catch ( std::exception& e ) {
+            m_messagesToSend.push( std::make_pair( pcID, "Downloading failed" ) );
+            return 0;
+        }
+        m_messagesToSend.push( std::make_pair( pcID, "Downloading OK" ) );
     }
     else if ( task == "Exit" ) {
         return 1;

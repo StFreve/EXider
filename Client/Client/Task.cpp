@@ -30,7 +30,12 @@ void Task::run() {
     for ( auto pc : m_workingPCs ) {
         sendNextCommand( pc );
     }
-    m_io.run();
+    try {
+        m_io.run();
+    }
+    catch ( std::exception& ex ) {
+        std::cerr << ex.what() << std::endl;
+    }
 }
 void Task::start() {
     if ( m_thread.get() == nullptr ) {  // Creating thread, if it wasn't already created.
@@ -93,6 +98,8 @@ void Task::handler( boost::shared_ptr<RemotePC> fromPC, const std::string result
         boost::recursive_mutex::scoped_lock lock( m_mutexForResult );
         m_result[ fromPC->getID() ] = command;
     }
+    else
+        return;
     sendNextCommand( fromPC );
 }
 const std::string& Task::getName() const {

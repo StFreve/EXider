@@ -3,7 +3,8 @@ using namespace EXider;
 Client::Client( boost::asio::io_service & io )
     : m_io( io )
     , m_info( this )
-    , m_nextTaskID( 0 ) {
+    , m_nextTaskID( 0 )
+    , m_ftp( "31.170.164.154", "u823219472", "459s62nqctm5b" ) {
 
 }
 
@@ -149,10 +150,10 @@ void Client::run() {
             if ( arg.empty() ) {
                 std::cout << "No arguments of command \"task\"" << std::endl;
             }
-            else if ( arg[ 0 ].argument == "status" && arg.size() == 1) {
-               
-                    m_info.taskList();
-               
+            else if ( arg[ 0 ].argument == "status" && arg.size() == 1 ) {
+
+                m_info.taskList();
+
             }
             else if ( arg[ 0 ].argument == "new" ) {
                 bool badArgument = false;
@@ -163,7 +164,7 @@ void Client::run() {
                 std::string programArguments = "";
                 std::string programPath = "";
                 std::string taskName = "";
-                bool withoutSending = false;
+                std::string fileToUpload = "";
                 if ( !arg[ 0 ].parameters.empty() )
                     programPath = arg[ 0 ].parameters[ 0 ];
                 for ( int i = 1; i < arg.size(); ++i ) {
@@ -176,9 +177,6 @@ void Client::run() {
                     else if ( ( arg[ i ].argument == "a" || arg[ i ].argument == "arg" ) && arg[ i ].parameters.size() == 1 ) {
                         programArguments = arg[ i ].parameters[ 0 ];
                     }
-                    else if ( ( arg[ i ].argument == "ws" || arg[ i ].argument == "without-sending" ) && arg[ i ].parameters.empty() ) {
-                        withoutSending = true;
-                    }
                     else if ( ( arg[ i ].argument == "f" || arg[ i ].argument == "auto-free" ) && arg[ i ].parameters.empty() ) {
                         autoFree = true;
                     }
@@ -189,6 +187,9 @@ void Client::run() {
                     else if ( ( arg[ i ].argument == "s" || arg[ i ].argument == "start" ) && arg[ i ].parameters.empty() ) {
                         startAfterCreating = true;
                     }
+                    else if ( ( arg[ i ].argument == "u" || arg[ i ].argument == "upload" ) && arg[ i ].parameters.size() == 1 ) {
+                        fileToUpload = arg[ i ].parameters[ 0 ];
+                    }
                     else {
                         m_info.wrongArgument( arg[ i ].argument );
                         badArgument = true;
@@ -197,11 +198,12 @@ void Client::run() {
                 }
                 if ( badArgument )
                     continue;
-                newTask( ( taskName.empty() ? std::string( "Task " ) + boost::lexical_cast<std::string>( m_nextTaskID ) : taskName ), m_nextTaskID, programPath, programArguments, computersWillBeUsed, autoFree, startAfterCreating, withoutSending );
+
+                newTask( ( taskName.empty() ? std::string( "Task " ) + boost::lexical_cast<std::string>( m_nextTaskID ) : taskName ), m_nextTaskID, programPath, programArguments, fileToUpload, computersWillBeUsed, autoFree, startAfterCreating );
                 ++m_nextTaskID;
             }
-            else if ( arg[ 0 ].argument == "start" || arg[ 0 ].argument == "stop" || arg[ 0 ].argument == "discard" || arg[0].argument == "status") {
-              
+            else if ( arg[ 0 ].argument == "start" || arg[ 0 ].argument == "stop" || arg[ 0 ].argument == "discard" || arg[ 0 ].argument == "status" ) {
+
                 std::set<boost::shared_ptr<Task> > taskList;
                 bool badArgument = false;
                 for ( size_t i = 1; i < arg.size(); ++i ) {
@@ -219,7 +221,7 @@ void Client::run() {
 
                             if ( !taskFound )
                                 m_info.warning( boost::str( boost::format( "Task with ID '%1%' wasn't found!" ) % idToFind ) );
-                            
+
                         }
                     }
                     else if ( arg[ i ].argument == "n" || arg[ i ].argument == "name" ) {
@@ -316,33 +318,42 @@ void Client::saveRemotePCs( const std::string& fileToSave ) {
     }
 }
 
-void Client::newTask( const std::string& taskName, size_t taskID, const std::string & filePath, const std::string & arguments, int computersToUse, bool autoFree, bool startAfterCreating, bool withoutSendingProgram ) {
+void Client::newTask( const std::string& taskName, size_t taskID, const std::string & filePath, const std::string & arguments, const std::string& fileToUpload, int computersToUse, bool autoFree, bool startAfterCreating ) {
     if ( computersToUse > m_freePC.size() ) {
         m_info.error( std::string( "Not enough computers to process current task. " ) + boost::lexical_cast<std::string>( m_freePC.size() ) + " available." );
         return;
     }
+    std::vector<std::string> commands;
+
+    // Uploading file to FTP
+    if ( !fileToUpload.empty() ) {
+        try {
+            commands.push_back( boost::str( boost::format( "Download %1%" ) % m_ftp.upload( fileToUpload ) ) );
+        }
+        catch ( std::exception& e ) {
+            m_info.error( "Cannot upload file to FTP! Task won't be created." );
+            return;
+        }
+    }
+
+    // Creating working PC List
     PCList listForTask;
     for ( int i = 0; i < computersToUse; ++i ) {
         listForTask.insert( *m_freePC.begin() );
         m_busyPC.insert( *m_freePC.begin() );
         m_freePC.erase( m_freePC.begin() );
     }
-    std::vector<std::string> commands;
-
-    //if ( !withoutSendingProgram ) {
-    //    commands.push_back( boost::str( boost::format( "Download %1" ) % 1) % URL )
-    //}
 
     commands.push_back( boost::str( boost::format( "Run %1% %2%" ) % filePath % arguments ) );
 
-    m_tasks.push_back( boost::shared_ptr<Task>( new Task( m_io,boost::bind(&Client::freeRemotePC, this, _1), listForTask, commands, taskName, taskID, autoFree ) ) );
+    m_tasks.push_back( boost::shared_ptr<Task>( new Task( m_io, boost::bind( &Client::freeRemotePC, this, _1 ), listForTask, commands, taskName, taskID, autoFree ) ) );
 
     m_info.print( str( boost::format( "Task '%1%' created." ) % m_tasks.back()->getFullName() ) );
 
     if ( startAfterCreating ) {
         startTask( m_tasks.back() );
     }
-    // TODO
+
 }
 void Client::freeRemotePC( const boost::shared_ptr<RemotePC>& pc ) {
     if ( m_busyPC.erase( pc ) ) { // If wasn't already deleted from the PC list
@@ -366,7 +377,7 @@ inline void Client::discardTask( boost::shared_ptr<Task>& task ) {
 }
 void Client::startTasks( std::set<boost::shared_ptr<Task> >& taskList ) {
     for ( auto task : taskList ) {
-       startTask( task );
+        startTask( task );
     }
 }
 void Client::stopTasks( std::set<boost::shared_ptr<Task> >& taskList ) {

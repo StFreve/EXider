@@ -9,7 +9,7 @@
 #include <vector>
 #include <queue>
 #include <memory>
-//Boost
+// Boost
 #include <boost\filesystem.hpp>
 #include <boost\asio.hpp>
 #include <boost\thread.hpp>
@@ -18,6 +18,11 @@
 #include <boost\filesystem.hpp>
 #include <boost\lexical_cast.hpp>
 #include <boost\format.hpp>
+
+// Poco
+#include <Poco\Net\FTPClientSession.h>
+#include <Poco\StreamCopier.h>
+
 namespace EXider {
 	// Variables, Enums and structs
 	const size_t PORT = 8008;

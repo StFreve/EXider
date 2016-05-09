@@ -38,7 +38,7 @@ using namespace EXider;
 				program.reset();
 
 				// Receiving the result
-				sendResult( nowWorking_id, result );
+				sendResult( nowWorking_id, std::string("Result ") + result );
 			}
 
 		}

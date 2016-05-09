@@ -10,7 +10,7 @@ namespace EXider {
 
         size_t m_nextTaskID;
         //		Logger m_logger;
-        //		FtpClient m_ftp;
+        FtpClient m_ftp;
         PCList m_freePC, m_busyPC, m_notConnectedPC;
         std::vector<boost::shared_ptr<Task> > m_tasks;
 
@@ -24,7 +24,7 @@ namespace EXider {
         void freeRemotePC( const boost::shared_ptr<RemotePC>& pc );
 
         // Tasks
-        void newTask( const std::string& taskName, size_t taskID, const std::string& filePath, const std::string& arguments, int computersToUse, bool autoFree, bool startAfterCreating, bool withoutSendingProgram );
+        void newTask( const std::string& taskName, size_t taskID, const std::string& filePath, const std::string& arguments, const std::string& fileToUpload, int computersToUse, bool autoFree, bool startAfterCreating);
         void startTasks( std::set<boost::shared_ptr<Task> >& tasksToStart );
         void stopTasks( std::set<boost::shared_ptr<Task> >& tasksToStart );
         void discardTasks( std::set<boost::shared_ptr<Task> >& tasksToStart );
