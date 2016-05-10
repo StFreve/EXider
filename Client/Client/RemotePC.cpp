@@ -11,6 +11,9 @@ RemotePC::RemotePC( boost::asio::io_service & io, const boost::asio::ip::address
     m_endpoint( IP, EXIDER_PORT ) {
 
 }
+RemotePC::~RemotePC() {
+
+}
 
 bool RemotePC::connect()
 {
@@ -22,6 +25,7 @@ bool RemotePC::connect()
     }
     else {
         m_status = Available;
+        readRequest();
         return true;
     }
 }
@@ -43,20 +47,20 @@ inline const rpcStatus RemotePC::status() const {
 
 void RemotePC::sendRequest( const std::string& request ) {
     if ( !m_socket.is_open() )
-        throw std::exception( "Socket isn't open" );
+        std::cerr << "Socket isn't open" << std::endl;
     else if ( m_status != Available )
-        throw std::exception( "Connection ism't available" );
+        std::cerr << "Connection ism't available" << std::endl;
 
     reqToSend = boost::str( boost::format( "ID %1% %2%\n" ) % getID() % request );     // Adding ID to request
     m_socket.async_write_some( boost::asio::buffer( reqToSend ), boost::bind( &RemotePC::sendHandler, this, _1 ) );
 }
 void RemotePC::readRequest() {
     if ( !m_socket.is_open() )
-        throw std::exception( "Socket isn't open" );
+        std::cerr << "Socket isn't open" << std::endl;
     else if ( m_status != Available )
-        throw std::exception( "Connection ism't available" );
+        std::cerr << "Connection ism't available" << std::endl;
 
-    boost::asio::async_read_until(m_socket, m_buffer,'\n', boost::bind( &RemotePC::readHandler, this, _1, _2 ) );
+    boost::asio::async_read_until( m_socket, m_buffer, '\n', boost::bind( &RemotePC::readHandler, this, _1, _2 ) );
 }
 void RemotePC::setID( size_t ID ) {
     m_id = ID;
@@ -64,7 +68,9 @@ void RemotePC::setID( size_t ID ) {
 void RemotePC::setCallBackFunction( const boost::function<void( boost::shared_ptr<RemotePC>, std::string )>& cb ) {
     m_callback = cb;
 }
-
+void RemotePC::clearCallBackFunction() {
+    m_callback.clear();
+}
 const size_t RemotePC::getID() const {
     return m_id;
 }
@@ -83,26 +89,35 @@ bool RemotePC::operator<( const RemotePC & rhrp ) const {
 
 
 void RemotePC::readHandler( const boost::system::error_code& error, size_t bytes ) {
-    if ( error )
-        m_callback( getSelfPtr(), "Reading ERROR" );
+ 
+    if ( error ) {
+        if ( !m_callback.empty() )
+            m_callback( getSelfPtr(), "Reading ERROR" );
+        return;
+    }
     std::istream is( &m_buffer );
     std::string result;
-    std::getline( is, result);
-    m_callback( getSelfPtr(), result );
+    std::getline( is, result );
+    if ( !m_callback.empty() )
+        m_callback( getSelfPtr(), result );
+ //   readRequest();
 }
 void RemotePC::sendHandler( const boost::system::error_code& error ) {
-    if ( error )
-        m_callback( getSelfPtr(), "Wriing ERROR" );
-    else
-        m_callback( getSelfPtr(), "Writing OK" );
+    if ( !m_callback.empty() )
+        if ( error )
+            m_callback( getSelfPtr(), "Wriing ERROR" );
+        else
+            m_callback( getSelfPtr(), "Writing OK" );
 }
 void RemotePC::connectedHandler( const boost::system::error_code& error ) {
     if ( error ) {
-        m_callback( getSelfPtr(), "Connecting ERROR" );
+        if ( !m_callback.empty() )
+            m_callback( getSelfPtr(), "Connecting ERROR" );
         m_status = ConnectionError;
     }
     else {
-        m_callback( getSelfPtr(), "Connection OK" );
+        if ( !m_callback.empty() )
+            m_callback( getSelfPtr(), "Connection OK" );
         m_status = Available;
     }
 }

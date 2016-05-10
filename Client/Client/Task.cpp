@@ -2,7 +2,7 @@
 using namespace EXider;
 Task::Task( boost::asio::io_service& io, boost::function<void( const boost::shared_ptr<RemotePC>& )> freePC, const PCList& workingPCs, const std::vector<std::string>& commands, const std::string& taskName, int tID, bool autoFree )
     : m_io( io )
-    , m_freePC(freePC)
+    , m_freePC( freePC )
     , m_mutexForResult()
     , m_taskName( taskName )
     , m_tID( tID )
@@ -11,6 +11,7 @@ Task::Task( boost::asio::io_service& io, boost::function<void( const boost::shar
     , m_workingStep( workingPCs.size(), 0 )
     , m_commands( commands )
     , m_autoFree( autoFree )
+    , m_isStoping( false )
     , m_thread() {
     size_t pcID = 0;
     for ( auto pc : m_workingPCs ) {
@@ -19,8 +20,14 @@ Task::Task( boost::asio::io_service& io, boost::function<void( const boost::shar
     }
 }
 Task::~Task() {
-    for ( auto pc : m_workingPCs ) {
-        m_freePC( pc );
+    m_isStoping = true;
+    stop();
+    while ( true ) {
+        boost::asio::deadline_timer timer( m_io, boost::posix_time::seconds( 2 ) );
+        timer.wait();
+        boost::recursive_mutex::scoped_lock lock( m_mutexForDestroying );
+        if ( m_workingPCs.empty() )
+            break;
     }
 }
 
@@ -30,12 +37,8 @@ void Task::run() {
     for ( auto pc : m_workingPCs ) {
         sendNextCommand( pc );
     }
-    try {
-        m_io.run();
-    }
-    catch ( std::exception& ex ) {
-        std::cerr << ex.what() << std::endl;
-    }
+
+    m_io.run();
 }
 void Task::start() {
     if ( m_thread.get() == nullptr ) {  // Creating thread, if it wasn't already created.
@@ -76,9 +79,17 @@ void Task::handler( boost::shared_ptr<RemotePC> fromPC, const std::string result
     std::istringstream iss( result );
     std::string command;
     iss >> command;
+
+    if ( m_isStoping && command == "Stopped" ) {
+        m_freePC( fromPC );
+        boost::recursive_mutex::scoped_lock lock( m_mutexForDestroying );
+        m_workingPCs.erase( fromPC );
+        return;
+    }
+
     if ( command == "Writing" ) {
         iss >> command;
-        if ( command != "OK" ) 
+        if ( command != "OK" )
             std::cerr << "Error in Writing" << std::endl;
         return;
     }
@@ -115,16 +126,19 @@ const PCList Task::getPCList() const {
     return m_workingPCs;
 }
 void Task::sendNextCommand( const boost::shared_ptr<RemotePC>& pc ) {
+
     const size_t pcID = pc->getID();
 
     assert( pcID < m_workingStep.size() );
     assert( m_workingStep[ pcID ] <= m_commands.size() );
     if ( m_workingStep[ pcID ] < m_commands.size() ) {
-        pc->sendRequest( m_commands[ m_workingStep[ pc->getID() ] ] );
-        pc->readRequest();
+        if ( !m_isStoping )
+            pc->sendRequest( m_commands[ m_workingStep[ pc->getID() ] ] );
     }
     else if ( m_autoFree ) {
         m_freePC( pc );
         m_workingPCs.erase( pc );
+        return;
     }
+    pc->readRequest();
 }

@@ -33,7 +33,7 @@ using namespace EXider;
 				boost::process::pistream &is = program->get_stdout();
 				std::string result;
 				std::getline( is, result );
-
+                result = result.substr( 0, result.find_last_of( '\r' ) );
 				// Closing the process
 				program.reset();
 
@@ -54,8 +54,9 @@ using namespace EXider;
 	void ProgramExecutor::stop() {
 		boost::recursive_mutex::scoped_lock sl( m_mutex );
 		std::queue<std::pair<int, Program> >().swap( m_executeQueue );
-		program->terminate();
+        if ( program.get() )		// If process is running
+	    	program->terminate();
 	}
 	void ProgramExecutor::sendResult( int id, const std::string& result ) {
-		server->executeHandler( id, result );
+		server->send_message( id, result );
 	}

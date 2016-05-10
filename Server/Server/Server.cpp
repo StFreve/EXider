@@ -10,7 +10,8 @@ Server::Server( boost::asio::io_service& io )
     , m_executor( io, this )
     , m_messagesToSend()
     , taskThread( &ProgramExecutor::run, &m_executor )
-    , resultSenderThread( &Server::resultSender, this ) {
+    , resultSenderThread( &Server::resultSender, this )
+    , wasStopped( false ) {
 
 }
 
@@ -33,9 +34,11 @@ void Server::run() {
     }
 }
 
-void Server::executeHandler( int id, std::string output ) {
+void Server::send_message( int id, std::string message ) {
+    if ( wasStopped )
+        return;
     boost::recursive_mutex::scoped_lock sl( m_send_mutex );
-    m_messagesToSend.push( { id, output } );
+    m_messagesToSend.push( { id, message } );
 }
 
 void Server::resultSender() {
@@ -55,7 +58,7 @@ std::string Server::read_request() {
     boost::asio::read_until( *m_socket, buf, "\n" );
     std::istream is( &buf );
     std::string readRequest;
-    std::getline( is, readRequest);
+    std::getline( is, readRequest );
     return readRequest;
 }
 
@@ -63,12 +66,12 @@ void Server::send_request( int id, std::string message ) {
     std::cerr << "Send message: " << message << std::endl;
     char messageToSend[ 256 ];
     sprintf( messageToSend, "%s\n", message.c_str() );
-    boost::asio::write( *m_socket, boost::asio::buffer( messageToSend, strlen(messageToSend) ) );
+    boost::asio::write( *m_socket, boost::asio::buffer( messageToSend, strlen( messageToSend ) ) );
 }
 
 int Server::taskManager( const std::string& str ) { // TODO
     std::cerr << "Get command: " << str << std::endl;
-
+    wasStopped = false;
     std::istringstream iss( str );
     std::string task;
     iss >> task;
@@ -101,11 +104,19 @@ int Server::taskManager( const std::string& str ) { // TODO
         m_executor.addProgram( 0, prog );
     }
     else if ( task == "Stop" ) {
-        if ( iss >> task && task == "all" ) {
+      /*  if ( iss >> task && task == "all" ) {
             m_executor.stop();
         }
         else
-            m_executor.terminateRunningProcess();
+            m_executor.terminateRunningProcess();*/
+        wasStopped = true;                                                     // Prevents sending other messages
+        m_executor.stop();                                                     // Stops running process
+        
+        boost::recursive_mutex::scoped_lock sl( m_send_mutex ); 
+        std::queue<std::pair<int, std::string> >().swap( m_messagesToSend );   // Deletes all messages in queue
+
+        send_request( pcID, "Stopped" );
+            
     }
     else if ( task == "Download" ) {
         std::string url;

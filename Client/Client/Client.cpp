@@ -298,10 +298,15 @@ void Client::addRemotePCs( const std::vector<boost::asio::ip::address>& IPs ) {
 }
 void Client::deleteRemotePCs( const std::vector<boost::asio::ip::address>& IPs ) {
     for ( size_t i = 0; i < IPs.size(); ++i ) {
-        m_freePC.erase( boost::shared_ptr<RemotePC>( new RemotePC( m_io, IPs[ i ] ) ) );
-        m_busyPC.erase( boost::shared_ptr<RemotePC>( new RemotePC( m_io, IPs[ i ] ) ) );
-        m_notConnectedPC.erase( boost::shared_ptr<RemotePC>( new RemotePC( m_io, IPs[ i ] ) ) );
-        std::cout << "Remote PC with IP " << IPs[ i ].to_string() << " was deleted.\n";
+        boost::shared_ptr<RemotePC> pcToDelete( new RemotePC( m_io, IPs[ i ] ) );
+        if ( m_busyPC.find( pcToDelete ) != m_busyPC.end() ) {
+            m_info.warning( boost::str( boost::format( "Remote PC with IP: %1% can't be deleted while it is in use." ) % IPs[ i ].to_string() ) );
+        }
+        else {
+            m_freePC.erase( pcToDelete );
+            m_notConnectedPC.erase( pcToDelete );
+            m_info.warning( boost::str( boost::format( "Remote PC with IP: %1% was deleted." ) % IPs[ i ].to_string() ) );
+        }
     }
 }
 
@@ -356,6 +361,7 @@ void Client::newTask( const std::string& taskName, size_t taskID, const std::str
 
 }
 void Client::freeRemotePC( const boost::shared_ptr<RemotePC>& pc ) {
+    pc->clearCallBackFunction();
     if ( m_busyPC.erase( pc ) ) { // If wasn't already deleted from the PC list
         m_freePC.insert( pc );
     }
@@ -368,7 +374,6 @@ inline void Client::stopTask( boost::shared_ptr<Task>& task ) {
 }
 inline void Client::discardTask( boost::shared_ptr<Task>& task ) {
     // TODO: Task Deleting needs improving
-    task->stop();
     for ( size_t i = 0; i < m_tasks.size(); ++i ) {
         if ( task == m_tasks[ i ] ) {
             m_tasks.erase( m_tasks.begin() + i );

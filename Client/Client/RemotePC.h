@@ -7,9 +7,9 @@ namespace EXider {
         boost::asio::ip::tcp::endpoint m_endpoint;
         boost::asio::streambuf m_buffer;
         boost::function<void( boost::shared_ptr<RemotePC>, std::string )> m_callback;
-
         rpcStatus m_status;
         size_t m_id;
+        
         std::string reqToSend;
         // Async Wrtie, Read, Connecting Handlers
         void sendHandler( const boost::system::error_code& error );
@@ -19,6 +19,7 @@ namespace EXider {
     public:
         RemotePC( boost::asio::io_service& io, const std::string& IP );
         RemotePC( boost::asio::io_service& io, const boost::asio::ip::address& IP );
+        ~RemotePC();
         bool connect();	                                        // Sync-Connect to the socket
         bool reconnect();                                       // Reconnecting to the socket
         void disconnect();                                      // Disconnecting the socke
@@ -30,7 +31,7 @@ namespace EXider {
         // Setup PC's ID in current Task, and call-back function to communicate with the Task
         void setID( size_t ID );
         void setCallBackFunction( const boost::function<void( boost::shared_ptr<RemotePC>, std::string )>& cb );
-
+        void clearCallBackFunction();
         boost::shared_ptr<RemotePC> getSelfPtr();               // Self Pointer
         const size_t getID() const;                                // PC's ID in current Task
         inline const boost::asio::ip::address getIP() const;    // IP's IP address
