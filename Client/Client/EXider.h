@@ -19,6 +19,10 @@
 // Poco
 #include <Poco/Net/FTPClientSession.h>
 #include <Poco/StreamCopier.h>
+// LibSSH
+#define LIBSSH_STATIC
+#include <libssh\libssh.h>
+
 namespace EXider {
     const size_t EXIDER_PORT = 8008;
     enum rpcStatus {	// RemotePC Statuses
@@ -56,3 +60,4 @@ namespace EXider {
 #include "RPComparator.h"
 #include "Task.h"
 #include "Client.h"
+#include "SSH.h"

@@ -16,6 +16,8 @@ void Client::run() {
     while ( true ) {
         std::cout << "EXider >> ";
         std::getline( std::cin, comLine );
+        if ( comLine.empty() || comLine.find_first_not_of(' ') == std::string::npos )
+            continue;
         parser.parseCommand( comLine );
         if ( parser.command() == "pc" ) {
             auto arg = parser.arguments();
@@ -53,7 +55,7 @@ void Client::run() {
                 }
 
             }
-            else if ( arg[ 0 ].argument == "add" || arg[ 0 ].argument == "delete" || arg[ 0 ].argument == "reconnect" ) {
+            else if ( arg[ 0 ].argument == "add" || arg[ 0 ].argument == "delete" || arg[ 0 ].argument == "reconnect" || arg[ 0 ].argument == "install" ) {
                 std::vector<boost::asio::ip::address> pc_ip;
                 bool badIP = false;
                 for ( int i = 1; i < arg.size(); ++i ) {
@@ -99,6 +101,9 @@ void Client::run() {
                             pc_ip.push_back( pc->getIP() );
                     }
                     reconnectRemotePCs( pc_ip );
+                }
+                else if ( arg[ 0 ].argument == "install" ) {
+                    installRemotePC( pc_ip );
                 }
             }
             else if ( arg[ 0 ].argument == "save" ) {
@@ -250,8 +255,21 @@ void Client::run() {
 
 
 }
-bool Client::connectPC( boost::shared_ptr<RemotePC>& pc ) {
+bool Client::connectRemotePC( boost::shared_ptr<RemotePC>& pc ) {
     return pc->connect();
+}
+void Client::installRemotePC( const std::vector<boost::asio::ip::address>& IPs ) {
+    SSH ssh;
+    std::string login, password;
+    std::cout << "Login: ";
+    std::cin >> login;
+    std::cout << "Password: ";
+    std::cin >> password;
+    std::string  command = std::string( "rm EXider_Server.zip; rm -r EXider_Server; wget http://blacklogger.hol.es/EXider_Server.zip; unzip EXider_Server.zip; cd EXider_Server; echo " ) + password + " | sudo -S chmod +x install.sh; echo " + password + " | sudo -S ./install.sh;  echo " + password + " | sudo -S service exider_server start > /dev/null 2>&1";
+    ssh.run( login, password, IPs, command );
+ 
+    // Clear cin
+    std::getline(std::cin, login );
 }
 void Client::addRemotePCs( const std::vector<boost::asio::ip::address>& IPs ) {
     for ( auto ip : IPs ) {
@@ -262,7 +280,7 @@ void Client::addRemotePCs( const std::vector<boost::asio::ip::address>& IPs ) {
             m_info.warning( std::string( "Remote PC with IP Address: " ) + ip.to_string() + " has been already added." );
             continue;
         }
-        if ( connectPC( pc ) ) {
+        if ( connectRemotePC( pc ) ) {
             m_freePC.insert( pc );
             m_info.print( std::string( "Remote PC with IP " ) + ip.to_string() + " was connected." );
         }
@@ -293,7 +311,7 @@ void Client::reconnectRemotePCs( const std::vector<boost::asio::ip::address>& IP
             m_info.warning( boost::str( boost::format( "Remote PC with IP: %1% can't be found." ) % IPs[ i ].to_string() ) );
         }
         else {
-            if ( connectPC( pc ) ) {
+            if ( connectRemotePC( pc ) ) {
                 m_notConnectedPC.erase( pc );
                 m_freePC.insert( pc );
                 m_info.print( std::string( "Remote PC with IP " ) + IPs[ i ].to_string() + " was connected." );
@@ -321,7 +339,7 @@ void Client::saveRemotePCs( const std::string& fileToSave ) {
 
 void Client::newTask( const std::string& taskName, size_t taskID, const std::string & filePath, const std::string & arguments, const std::string& fileToUpload, int computersToUse, bool autoFree, bool startAfterCreating ) {
     if ( computersToUse > m_freePC.size() ) {
-          return;
+        return;
     }
     std::vector<std::string> commands;
 

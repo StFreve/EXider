@@ -18,7 +18,8 @@ namespace EXider {
         Client( boost::asio::io_service& io );
         void run();
         // RemotePCs
-        bool connectPC( boost::shared_ptr<RemotePC>& pc );
+        bool connectRemotePC( boost::shared_ptr<RemotePC>& pc );
+        void installRemotePC( const std::vector<boost::asio::ip::address>&  IPs );
         void addRemotePCs( const std::vector<boost::asio::ip::address>&  IPs );
         void deleteRemotePCs( const std::vector<boost::asio::ip::address>&  IPs );
         void reconnectRemotePCs( const std::vector<boost::asio::ip::address>&  IPs );

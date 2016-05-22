@@ -123,12 +123,18 @@ void Task::handler( boost::shared_ptr<RemotePC> fromPC, const std::string result
     else if ( command == "Result" ) {
 
         if ( !iss.eof() ) {
-            std::getline( iss, command );
-            command = command.substr( command.find_first_not_of( ' ' ) );
-            if ( command != "FAILED" ) {
-                boost::recursive_mutex::scoped_lock lock( m_mutexForResult );
-                m_result[ fromPC->getID() ] = command;
-                ++m_workingStep[ fromPC->getID() ];
+            try {
+                std::getline( iss, command );
+                command = command.substr( command.find_first_not_of( ' ' ) );
+                if ( command != "FAILED" ) {
+                    boost::recursive_mutex::scoped_lock lock( m_mutexForResult );
+                    m_result[ fromPC->getID() ] = command;
+                    ++m_workingStep[ fromPC->getID() ];
+                }
+            }
+            catch ( std::exception& e ) {
+                std::cerr << e.what() << std::endl;
+                return;
             }
         }
         else
