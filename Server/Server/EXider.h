@@ -10,18 +10,18 @@
 #include <queue>
 #include <memory>
 // Boost
-#include <boost\filesystem.hpp>
-#include <boost\asio.hpp>
-#include <boost\thread.hpp>
-#include <boost\timer.hpp>
-#include <boost\process.hpp>
-#include <boost\filesystem.hpp>
-#include <boost\lexical_cast.hpp>
-#include <boost\format.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/asio.hpp>
+#include <boost/thread.hpp>
+#include <boost/timer.hpp>
+#include <boost/process.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/format.hpp>
 
 // Poco
-#include <Poco\Net\FTPClientSession.h>
-#include <Poco\StreamCopier.h>
+#include <Poco/Net/FTPClientSession.h>
+#include <Poco/StreamCopier.h>
 
 namespace EXider {
 	// Variables, Enums and structs
@@ -31,7 +31,11 @@ namespace EXider {
 		std::vector<std::string> parameters;
 	};
     typedef std::vector<EXiderArgument> argList;
-
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+    static const char slash = '\\';
+#else
+    static const char slash = '/';
+#endif
 
 	// Classes
 	class CommandParser;

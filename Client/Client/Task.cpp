@@ -22,19 +22,31 @@ Task::Task( boost::asio::io_service& io, boost::function<void( const boost::shar
 Task::~Task() {
     m_isStoping = true;
     stop();
-    while ( true ) {
+    for ( size_t i = 0; i < 10; ++i ) {
         boost::asio::deadline_timer timer( m_io, boost::posix_time::seconds( 2 ) );
         timer.wait();
         boost::recursive_mutex::scoped_lock lock( m_mutexForDestroying );
         if ( m_workingPCs.empty() )
             break;
     }
+    while ( !m_workingPCs.empty() ) {
+        freePC( *m_workingPCs.begin() );
+        m_workingPCs.erase( m_workingPCs.begin() );
+    }
+}
+
+void Task::freePC( const boost::shared_ptr<RemotePC>& pc ) {
+    m_freePC( pc );
+    boost::recursive_mutex::scoped_lock lock( m_mutexForDestroying );
+    m_workingPCs.erase( pc );
+    return;
 }
 
 void Task::run() {
     char request[ 256 ];
 
     for ( auto pc : m_workingPCs ) {
+        pc->setInWork( true );
         sendNextCommand( pc );
     }
 
@@ -46,8 +58,16 @@ void Task::start() {
     }
 }
 void Task::stop() {
+    PCList notConnected;
     for ( auto pc : m_workingPCs ) {
-        pc->sendRequest( "Stop" );
+        if ( pc->status() == NotConencted ) {
+            notConnected.insert( pc );
+        }
+        else
+            pc->sendRequest( "Stop" );
+    }
+    for ( auto pc : notConnected ) {
+        freePC( pc );
     }
 }
 const std::string Task::getResult( const std::string& delimeter ) const {
@@ -80,13 +100,12 @@ void Task::handler( boost::shared_ptr<RemotePC> fromPC, const std::string result
     std::string command;
     iss >> command;
 
-    if ( m_isStoping && command == "Stopped" ) {
-        m_freePC( fromPC );
-        boost::recursive_mutex::scoped_lock lock( m_mutexForDestroying );
-        m_workingPCs.erase( fromPC );
+    if ( m_isStoping && ( command == "Stopped" || command == "Disconnected" ) ) {
+        freePC( fromPC );
         return;
     }
-
+    if ( command == "Disconnected" )
+        return;
     if ( command == "Writing" ) {
         iss >> command;
         if ( command != "OK" )
@@ -97,17 +116,24 @@ void Task::handler( boost::shared_ptr<RemotePC> fromPC, const std::string result
         iss >> command;
         if ( command == "OK" )
             ++m_workingStep[ fromPC->getID() ];
-        else if ( command == "Error" ) {
-            // TODO
+        else if ( command == "FAILED" ) {
+            return;
         }
     }
     else if ( command == "Result" ) {
-        ++m_workingStep[ fromPC->getID() ];
 
-        std::getline( iss, command );
-        command = command.substr( command.find_first_not_of( ' ' ) );
-        boost::recursive_mutex::scoped_lock lock( m_mutexForResult );
-        m_result[ fromPC->getID() ] = command;
+        if ( !iss.eof() ) {
+            std::getline( iss, command );
+            command = command.substr( command.find_first_not_of( ' ' ) );
+            if ( command != "FAILED" ) {
+                boost::recursive_mutex::scoped_lock lock( m_mutexForResult );
+                m_result[ fromPC->getID() ] = command;
+                ++m_workingStep[ fromPC->getID() ];
+            }
+        }
+        else
+            ++m_workingStep[ fromPC->getID() ];
+
     }
     else
         return;
@@ -136,8 +162,7 @@ void Task::sendNextCommand( const boost::shared_ptr<RemotePC>& pc ) {
             pc->sendRequest( m_commands[ m_workingStep[ pc->getID() ] ] );
     }
     else if ( m_autoFree ) {
-        m_freePC( pc );
-        m_workingPCs.erase( pc );
+        freePC( pc );
         return;
     }
     pc->readRequest();

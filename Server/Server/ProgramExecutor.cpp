@@ -11,6 +11,9 @@ using namespace EXider;
 			timer.wait();
 			boost::recursive_mutex::scoped_lock sl( m_mutex );
 			if ( !m_executeQueue.empty() ) {
+                // Result
+                std::string result;
+
 				// Copying data from Queue and unlocking mutex to be able to add new program to Queue
 				Program nowWorking = m_executeQueue.front().second;
 				int nowWorking_id = m_executeQueue.front().first;
@@ -23,17 +26,24 @@ using namespace EXider;
 				m_executeQueue.pop();
 				sl.unlock();
 
-				// Creating child process and waiting for result
-				boost::process::context ctx;
-				ctx.stdout_behavior = boost::process::capture_stream();
-				program.reset(new boost::process::child( boost::process::launch( fullPath, arguments, ctx ) ) );
-				program->wait();
+				
+                try {
+                    // Creating child process and waiting for result
+                    boost::process::context ctx;
+                    ctx.stdout_behavior = boost::process::capture_stream();
+                    program.reset( new boost::process::child( boost::process::launch( fullPath, arguments, ctx ) ) );
+                    program->wait();
 
-				// Reading result from stdout
-				boost::process::pistream &is = program->get_stdout();
-				std::string result;
-				std::getline( is, result );
-                result = result.substr( 0, result.find_last_of( '\r' ) );
+                    // Reading result from stdout
+                    boost::process::pistream &is = program->get_stdout();
+                    std::getline( is, result );
+                    result = result.substr( 0, result.find_last_of( '\r' ) );
+                }
+                catch ( std::exception& e ) {
+                    std::cerr << e.what() << std::endl;
+                    result = "failed";
+                }
+
 				// Closing the process
 				program.reset();
 

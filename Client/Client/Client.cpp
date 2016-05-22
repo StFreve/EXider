@@ -9,6 +9,7 @@ Client::Client( boost::asio::io_service & io )
 }
 
 void Client::run() {
+    boost::asio::io_service::work work( m_io );
     std::string comLine;
     CommandParser parser;
     boost::system::error_code er;
@@ -52,7 +53,7 @@ void Client::run() {
                 }
 
             }
-            else if ( arg[ 0 ].argument == "add" ) {
+            else if ( arg[ 0 ].argument == "add" || arg[ 0 ].argument == "delete" || arg[ 0 ].argument == "reconnect" ) {
                 std::vector<boost::asio::ip::address> pc_ip;
                 bool badIP = false;
                 for ( int i = 1; i < arg.size(); ++i ) {
@@ -88,45 +89,17 @@ void Client::run() {
                 if ( badIP ) {
                     m_info.warning( "Not all IPs will be processed. Some of them don't look like IP Addresses." );
                 }
-                addRemotePCs( pc_ip );
-            }
-            else if ( arg[ 0 ].argument == "delete" ) {
-                std::vector<boost::asio::ip::address> pc_ip;
-                bool badIP = false;
-                for ( int i = 1; i < arg.size(); ++i ) {
-                    if ( arg[ i ].argument == "ip" ) {
-                        for ( int j = 0; j < arg[ i ].parameters.size(); ++j ) {
-                            auto ip = boost::asio::ip::address::from_string( arg[ i ].parameters[ j ], er );
-                            if ( er ) {
-                                badIP = true;
-                            }
-                            else
-                                pc_ip.push_back( ip );
-                        }
+                if ( arg[ 0 ].argument == "add" )
+                    addRemotePCs( pc_ip );
+                else if ( arg[ 0 ].argument == "delete" )
+                    deleteRemotePCs( pc_ip );
+                else if ( arg[ 0 ].argument == "reconnect" ) {
+                    if ( pc_ip.empty() ) {
+                        for ( auto pc : m_notConnectedPC )
+                            pc_ip.push_back( pc->getIP() );
                     }
-                    else if ( arg[ i ].argument == "f" ) {
-                        for ( int j = 0; j < arg[ i ].parameters.size(); ++j ) {
-                            std::ifstream is( arg[ i ].parameters[ j ] );
-                            if ( is.bad() ) {
-                                badIP = true;
-                                continue;
-                            }
-                            std::string strIP;
-                            while ( is >> strIP ) {
-                                auto ip = boost::asio::ip::address::from_string( strIP, er );
-                                if ( er ) {
-                                    badIP = true;
-                                }
-                                else
-                                    pc_ip.push_back( ip );
-                            }
-                        }
-                    }
+                    reconnectRemotePCs( pc_ip );
                 }
-                if ( badIP ) {
-                    m_info.warning( "Not all IPs will be processed. Some of them don't look like IP Addresses." );
-                }
-                deleteRemotePCs( pc_ip );
             }
             else if ( arg[ 0 ].argument == "save" ) {
                 if ( arg.size() != 1 ) {
@@ -277,6 +250,9 @@ void Client::run() {
 
 
 }
+bool Client::connectPC( boost::shared_ptr<RemotePC>& pc ) {
+    return pc->connect();
+}
 void Client::addRemotePCs( const std::vector<boost::asio::ip::address>& IPs ) {
     for ( auto ip : IPs ) {
         boost::shared_ptr<RemotePC> pc( new RemotePC( m_io, ip ) );
@@ -286,7 +262,7 @@ void Client::addRemotePCs( const std::vector<boost::asio::ip::address>& IPs ) {
             m_info.warning( std::string( "Remote PC with IP Address: " ) + ip.to_string() + " has been already added." );
             continue;
         }
-        if ( pc->connect() ) {
+        if ( connectPC( pc ) ) {
             m_freePC.insert( pc );
             m_info.print( std::string( "Remote PC with IP " ) + ip.to_string() + " was connected." );
         }
@@ -310,6 +286,26 @@ void Client::deleteRemotePCs( const std::vector<boost::asio::ip::address>& IPs )
     }
 }
 
+void Client::reconnectRemotePCs( const std::vector<boost::asio::ip::address>& IPs ) {
+    for ( size_t i = 0; i < IPs.size(); ++i ) {
+        boost::shared_ptr<RemotePC> pc( new RemotePC( m_io, IPs[ i ] ) );
+        if ( m_notConnectedPC.find( pc ) == m_notConnectedPC.end() ) {
+            m_info.warning( boost::str( boost::format( "Remote PC with IP: %1% can't be found." ) % IPs[ i ].to_string() ) );
+        }
+        else {
+            if ( connectPC( pc ) ) {
+                m_notConnectedPC.erase( pc );
+                m_freePC.insert( pc );
+                m_info.print( std::string( "Remote PC with IP " ) + IPs[ i ].to_string() + " was connected." );
+            }
+            else {
+                m_info.print( std::string( "Remote PC with IP " ) + IPs[ i ].to_string() + " wasn't connected." );
+            }
+        }
+    }
+}
+
+
 void Client::saveRemotePCs( const std::string& fileToSave ) {
     std::ofstream os( fileToSave );
     if ( os.bad() ) {
@@ -325,10 +321,35 @@ void Client::saveRemotePCs( const std::string& fileToSave ) {
 
 void Client::newTask( const std::string& taskName, size_t taskID, const std::string & filePath, const std::string & arguments, const std::string& fileToUpload, int computersToUse, bool autoFree, bool startAfterCreating ) {
     if ( computersToUse > m_freePC.size() ) {
+          return;
+    }
+    std::vector<std::string> commands;
+
+    // Creating working PC List
+    PCList listForTask;
+    for ( int i = 0; i < computersToUse; ++i ) {
+        if ( ( *m_freePC.begin() )->status() == NotConencted ) {
+            m_notConnectedPC.insert( *m_freePC.begin() );
+            m_freePC.erase( m_freePC.begin() );
+            continue;
+        }
+        listForTask.insert( *m_freePC.begin() );
+        m_freePC.erase( m_freePC.begin() );
+    }
+
+    // Checking if PC's qty is enough.
+    if ( listForTask.size() != computersToUse ) {
+        for ( auto pc : listForTask ) {
+            m_freePC.insert( pc );
+        }
         m_info.error( std::string( "Not enough computers to process current task. " ) + boost::lexical_cast<std::string>( m_freePC.size() ) + " available." );
         return;
     }
-    std::vector<std::string> commands;
+    else {
+        for ( auto pc : listForTask ) {
+            m_busyPC.insert( pc );
+        }
+    }
 
     // Uploading file to FTP
     if ( !fileToUpload.empty() ) {
@@ -339,14 +360,6 @@ void Client::newTask( const std::string& taskName, size_t taskID, const std::str
             m_info.error( "Cannot upload file to FTP! Task won't be created." );
             return;
         }
-    }
-
-    // Creating working PC List
-    PCList listForTask;
-    for ( int i = 0; i < computersToUse; ++i ) {
-        listForTask.insert( *m_freePC.begin() );
-        m_busyPC.insert( *m_freePC.begin() );
-        m_freePC.erase( m_freePC.begin() );
     }
 
     commands.push_back( boost::str( boost::format( "Run %1% %2%" ) % filePath % arguments ) );
@@ -363,8 +376,13 @@ void Client::newTask( const std::string& taskName, size_t taskID, const std::str
 void Client::freeRemotePC( const boost::shared_ptr<RemotePC>& pc ) {
     pc->clearCallBackFunction();
     if ( m_busyPC.erase( pc ) ) { // If wasn't already deleted from the PC list
-        m_freePC.insert( pc );
+        if ( pc->status() == NotConencted ) {
+            m_notConnectedPC.insert( pc );
+        }
+        else
+            m_freePC.insert( pc );
     }
+    pc->setInWork( false );
 }
 inline void Client::startTask( boost::shared_ptr<Task>& task ) {
     task->start();

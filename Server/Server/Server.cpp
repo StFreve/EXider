@@ -84,7 +84,10 @@ int Server::taskManager( const std::string& str ) { // TODO
         return -1;
     }
     iss >> task;
-    if ( task == "Run" ) {
+    if ( task == "Check" ) {
+        m_messagesToSend.push( std::make_pair( pcID, "!Check" ) );
+    }
+    else if ( task == "Run" ) {
         std::string fullPath;
         std::string arguments;
         iss >> fullPath;
@@ -126,7 +129,7 @@ int Server::taskManager( const std::string& str ) { // TODO
             m_ftp.download( url );
         }
         catch ( std::exception& e ) {
-            m_messagesToSend.push( std::make_pair( pcID, "Downloading failed" ) );
+            m_messagesToSend.push( std::make_pair( pcID, "Downloading FAILED" ) );
             return 0;
         }
         m_messagesToSend.push( std::make_pair( pcID, "Downloading OK" ) );

@@ -1,14 +1,20 @@
 #include "EXider.h"
 using namespace EXider;
-RemotePC::RemotePC( boost::asio::io_service& io, const std::string& IP ) :
-    m_socket( io ), m_status( NotConencted ), m_id( 0 ),
-    m_endpoint( boost::asio::ip::address::from_string( IP ), EXIDER_PORT ) {
+RemotePC::RemotePC( boost::asio::io_service& io, const std::string& IP )
+    : m_socket( io )
+    , m_endpoint( boost::asio::ip::address::from_string( IP ), EXIDER_PORT )
+    , m_io( io )
+    , m_status( NotConencted )
+    , m_id( 0 ) {
 
 }
 
-RemotePC::RemotePC( boost::asio::io_service & io, const boost::asio::ip::address & IP ) :
-    m_socket( io ), m_status( NotConencted ), m_id( 0 ),
-    m_endpoint( IP, EXIDER_PORT ) {
+RemotePC::RemotePC( boost::asio::io_service & io, const boost::asio::ip::address & IP )
+    : m_socket( io )
+    , m_endpoint( IP, EXIDER_PORT )
+    , m_io( io )
+    , m_status( NotConencted )
+    , m_id( 0 ) {
 
 }
 RemotePC::~RemotePC() {
@@ -25,7 +31,7 @@ bool RemotePC::connect()
     }
     else {
         m_status = Available;
-        readRequest();
+        //   readRequest();
         return true;
     }
 }
@@ -41,14 +47,16 @@ void RemotePC::disconnect() {
     m_status = NotConencted;
 }
 
-inline const rpcStatus RemotePC::status() const {
+const rpcStatus RemotePC::status() {
+    if ( m_status == Available )
+        checkConnection();
     return m_status;
 }
 
 void RemotePC::sendRequest( const std::string& request ) {
     if ( !m_socket.is_open() )
         std::cerr << "Socket isn't open" << std::endl;
-    else if ( m_status != Available )
+    else if ( m_status == NotConencted )
         std::cerr << "Connection ism't available" << std::endl;
 
     reqToSend = boost::str( boost::format( "ID %1% %2%\n" ) % getID() % request );     // Adding ID to request
@@ -57,10 +65,19 @@ void RemotePC::sendRequest( const std::string& request ) {
 void RemotePC::readRequest() {
     if ( !m_socket.is_open() )
         std::cerr << "Socket isn't open" << std::endl;
-    else if ( m_status != Available )
+    else if ( m_status == NotConencted )
         std::cerr << "Connection ism't available" << std::endl;
 
     boost::asio::async_read_until( m_socket, m_buffer, '\n', boost::bind( &RemotePC::readHandler, this, _1, _2 ) );
+}
+void RemotePC::setInWork( bool busy ){
+    if ( busy ) {
+        m_status = Busy;
+    }
+    else
+        m_status = Available;
+
+
 }
 void RemotePC::setID( size_t ID ) {
     m_id = ID;
@@ -86,10 +103,16 @@ bool RemotePC::operator==( const RemotePC & rhrp ) const {
 bool RemotePC::operator<( const RemotePC & rhrp ) const {
     return getIP() < rhrp.getIP();
 }
-
-
 void RemotePC::readHandler( const boost::system::error_code& error, size_t bytes ) {
- 
+    if ( boost::asio::error::eof == error ||
+         boost::asio::error::connection_reset == error ) {
+        m_status = NotConencted;
+        if ( !m_callback.empty() ) {
+            m_callback( getSelfPtr(), "Disconnected" );
+            return;
+        }
+    }
+
     if ( error ) {
         if ( !m_callback.empty() )
             m_callback( getSelfPtr(), "Reading ERROR" );
@@ -100,9 +123,16 @@ void RemotePC::readHandler( const boost::system::error_code& error, size_t bytes
     std::getline( is, result );
     if ( !m_callback.empty() )
         m_callback( getSelfPtr(), result );
- //   readRequest();
+    //   readRequest();
 }
 void RemotePC::sendHandler( const boost::system::error_code& error ) {
+    if ( boost::asio::error::eof == error ||
+         boost::asio::error::connection_reset == error ) {
+        m_status = NotConencted;
+        if ( !m_callback.empty() )
+            m_callback( getSelfPtr(), "Disconnected" );
+    }
+
     if ( !m_callback.empty() )
         if ( error )
             m_callback( getSelfPtr(), "Wriing ERROR" );
@@ -119,6 +149,17 @@ void RemotePC::connectedHandler( const boost::system::error_code& error ) {
         if ( !m_callback.empty() )
             m_callback( getSelfPtr(), "Connection OK" );
         m_status = Available;
+    }
+}
+void RemotePC::checkConnection() {
+
+    m_socket.write_some( boost::asio::buffer( "ID 0 Check\n" ) );
+    boost::asio::streambuf buf;
+    boost::system::error_code error;
+    boost::asio::read_until( m_socket, buf, "\n", error );
+    if ( boost::asio::error::eof == error ||
+         boost::asio::error::connection_reset == error ) {
+        m_status = NotConencted;
     }
 }
 boost::shared_ptr<RemotePC> RemotePC::getSelfPtr() {

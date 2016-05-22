@@ -1,11 +1,11 @@
 #include "EXider.h"
 using namespace EXider;
 Program::Program( const std::string& fileName, const std::string& path, const std::string& arguments ) :
-    m_fileName( fileName ), m_path( path.empty() ? boost::filesystem::current_path().string() + "\\" : path ) {
+    m_fileName( fileName ), m_path( path.empty() ? boost::filesystem::current_path().string() + slash : path ) {
     deleteWhitespaces( m_fileName );
     deleteWhitespaces( m_path );
-    if ( m_path.back() != '/' ) {
-        m_path.push_back( '/' );
+    if ( m_path.back() != slash ) {
+        m_path.push_back( slash );
     }
     parseArguments( arguments );
 }
