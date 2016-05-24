@@ -8,7 +8,7 @@ namespace EXider {
         boost::asio::ip::tcp::acceptor m_acceptor;
         boost::recursive_mutex m_send_mutex;
         
-        FtpClient m_ftp;
+        std::string m_ftpHost, m_ftpLogin, m_ftpPassword;
 		ProgramExecutor m_executor;
 		std::queue<std::pair<int, std::string> > m_messagesToSend;
 	

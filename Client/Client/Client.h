@@ -10,7 +10,8 @@ namespace EXider {
 
         size_t m_nextTaskID;
         //		Logger m_logger;
-        FtpClient m_ftp;
+        //      FtpClient m_ftp;
+        std::string m_ftpHost, m_ftpLogin, m_ftpPassword;
         PCList m_freePC, m_busyPC, m_notConnectedPC;
         std::vector<boost::shared_ptr<Task> > m_tasks;
 

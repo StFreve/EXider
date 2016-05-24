@@ -4,7 +4,9 @@ Client::Client( boost::asio::io_service & io )
     : m_io( io )
     , m_info( this )
     , m_nextTaskID( 0 )
-    , m_ftp( "31.170.164.154", "u823219472", "459s62nqctm5b" ) {
+    , m_ftpHost( "31.170.164.154" )
+    , m_ftpLogin( "u823219472" )
+    , m_ftpPassword( "459s62nqctm5b" ) {
 
 }
 
@@ -16,7 +18,7 @@ void Client::run() {
     while ( true ) {
         std::cout << "EXider >> ";
         std::getline( std::cin, comLine );
-        if ( comLine.empty() || comLine.find_first_not_of(' ') == std::string::npos )
+        if ( comLine.empty() || comLine.find_first_not_of( ' ' ) == std::string::npos )
             continue;
         parser.parseCommand( comLine );
         if ( parser.command() == "pc" ) {
@@ -267,9 +269,9 @@ void Client::installRemotePC( const std::vector<boost::asio::ip::address>& IPs )
     std::cin >> password;
     std::string  command = std::string( "rm EXider_Server.zip; rm -r EXider_Server; wget http://blacklogger.hol.es/EXider_Server.zip; unzip EXider_Server.zip; cd EXider_Server; echo " ) + password + " | sudo -S chmod +x install.sh; echo " + password + " | sudo -S ./install.sh;  echo " + password + " | sudo -S service exider_server start > /dev/null 2>&1";
     ssh.run( login, password, IPs, command );
- 
+
     // Clear cin
-    std::getline(std::cin, login );
+    std::getline( std::cin, login );
 }
 void Client::addRemotePCs( const std::vector<boost::asio::ip::address>& IPs ) {
     for ( auto ip : IPs ) {
@@ -371,8 +373,9 @@ void Client::newTask( const std::string& taskName, size_t taskID, const std::str
 
     // Uploading file to FTP
     if ( !fileToUpload.empty() ) {
+        FtpClient ftp( m_ftpHost, m_ftpLogin, m_ftpPassword );
         try {
-            commands.push_back( boost::str( boost::format( "Download %1%" ) % m_ftp.upload( fileToUpload ) ) );
+            commands.push_back( boost::str( boost::format( "Download %1%" ) % ( ftp.upload( fileToUpload ) ) ) );
         }
         catch ( std::exception& e ) {
             m_info.error( "Cannot upload file to FTP! Task won't be created." );
@@ -393,7 +396,8 @@ void Client::newTask( const std::string& taskName, size_t taskID, const std::str
 }
 void Client::freeRemotePC( const boost::shared_ptr<RemotePC>& pc ) {
     pc->clearCallBackFunction();
-    if ( m_busyPC.erase( pc ) ) { // If wasn't already deleted from the PC list
+    if ( m_busyPC.find( pc ) != m_busyPC.end() ) { // If wasn't already deleted from the PC list
+        m_busyPC.erase( pc );
         if ( pc->status() == NotConencted ) {
             m_notConnectedPC.insert( pc );
         }
@@ -412,7 +416,12 @@ inline void Client::discardTask( boost::shared_ptr<Task>& task ) {
     // TODO: Task Deleting needs improving
     for ( size_t i = 0; i < m_tasks.size(); ++i ) {
         if ( task == m_tasks[ i ] ) {
-            m_tasks.erase( m_tasks.begin() + i );
+            try {
+                m_tasks.erase( m_tasks.begin() + i );
+            }
+            catch ( std::exception& e ) {
+                m_info.error( "Task was discarded with problems." );
+            }
         }
     }
 }

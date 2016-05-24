@@ -21,17 +21,28 @@ Task::Task( boost::asio::io_service& io, boost::function<void( const boost::shar
 }
 Task::~Task() {
     m_isStoping = true;
+
+    // Try to stop session normally (waiting 20 seconds)
     stop();
     for ( size_t i = 0; i < 10; ++i ) {
         boost::asio::deadline_timer timer( m_io, boost::posix_time::seconds( 2 ) );
         timer.wait();
         boost::recursive_mutex::scoped_lock lock( m_mutexForDestroying );
         if ( m_workingPCs.empty() )
-            break;
+            return;;
     }
-    while ( !m_workingPCs.empty() ) {
-        freePC( *m_workingPCs.begin() );
-        m_workingPCs.erase( m_workingPCs.begin() );
+
+    // If all sessions wasn't stopped in 20 seconds, try to reconnect remaining sessions and wait 40 seconds.
+    auto temp_workingPCs = m_workingPCs;
+    for ( auto pc : temp_workingPCs )
+        pc->reconnect();
+
+    for ( size_t i = 0; i < 20; ++i ) {
+        boost::asio::deadline_timer timer( m_io, boost::posix_time::seconds( 2 ) );
+        timer.wait();
+        boost::recursive_mutex::scoped_lock lock( m_mutexForDestroying );
+        if ( m_workingPCs.empty() )
+            break;
     }
 }
 
@@ -99,8 +110,7 @@ void Task::handler( boost::shared_ptr<RemotePC> fromPC, const std::string result
     std::istringstream iss( result );
     std::string command;
     iss >> command;
-
-    if ( m_isStoping && ( command == "Stopped" || command == "Disconnected" ) ) {
+    if ( m_isStoping && ( command == "Stopped" || command == "Disconnected" || command == "Reading" ) ) {
         freePC( fromPC );
         return;
     }

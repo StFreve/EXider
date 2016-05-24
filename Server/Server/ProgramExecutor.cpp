@@ -41,7 +41,7 @@ using namespace EXider;
                 }
                 catch ( std::exception& e ) {
                     std::cerr << e.what() << std::endl;
-                    result = "failed";
+                    result = "FAILED";
                 }
 
 				// Closing the process

@@ -6,7 +6,9 @@ Server::Server( boost::asio::io_service& io )
     , m_socket( new boost::asio::ip::tcp::socket( m_io ) )
     , m_acceptor( m_io, boost::asio::ip::tcp::endpoint( boost::asio::ip::tcp::v4(), PORT ) )
     , m_send_mutex()
-    , m_ftp( "31.170.164.154", "u823219472", "459s62nqctm5b" )
+    , m_ftpHost( "31.170.164.154" )
+    , m_ftpLogin( "u823219472" )
+    , m_ftpPassword( "459s62nqctm5b" )
     , m_executor( io, this )
     , m_messagesToSend()
     , taskThread( &ProgramExecutor::run, &m_executor )
@@ -122,11 +124,12 @@ int Server::taskManager( const std::string& str ) { // TODO
             
     }
     else if ( task == "Download" ) {
+        FtpClient ftp( m_ftpHost, m_ftpLogin, m_ftpPassword );
         std::string url;
         std::getline( iss, url );
         url = url.substr( url.find_first_not_of( ' ' ) );
         try {
-            m_ftp.download( url );
+            ftp.download( url );
         }
         catch ( std::exception& e ) {
             m_messagesToSend.push( std::make_pair( pcID, "Downloading FAILED" ) );
