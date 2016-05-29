@@ -144,7 +144,7 @@ void Client::run() {
                 std::string programArguments = "";
                 std::string programPath = "";
                 std::string taskName = "";
-                std::string fileToUpload = "";
+                std::vector<std::string> filesToUpload;
                 if ( !arg[ 0 ].parameters.empty() )
                     programPath = arg[ 0 ].parameters[ 0 ];
                 for ( int i = 1; i < arg.size(); ++i ) {
@@ -167,8 +167,8 @@ void Client::run() {
                     else if ( ( arg[ i ].argument == "s" || arg[ i ].argument == "start" ) && arg[ i ].parameters.empty() ) {
                         startAfterCreating = true;
                     }
-                    else if ( ( arg[ i ].argument == "u" || arg[ i ].argument == "upload" ) && arg[ i ].parameters.size() == 1 ) {
-                        fileToUpload = arg[ i ].parameters[ 0 ];
+                    else if ( ( arg[ i ].argument == "u" || arg[ i ].argument == "upload" ) ) {
+                        filesToUpload.insert( filesToUpload.end(), arg[ i ].parameters.begin(), arg[ i ].parameters.end() );
                     }
                     else {
                         m_info.wrongArgument( arg[ i ].argument );
@@ -179,7 +179,7 @@ void Client::run() {
                 if ( badArgument )
                     continue;
 
-                newTask( ( taskName.empty() ? std::string( "Task " ) + boost::lexical_cast<std::string>( m_nextTaskID ) : taskName ), m_nextTaskID, programPath, programArguments, fileToUpload, computersWillBeUsed, autoFree, startAfterCreating );
+                newTask( ( taskName.empty() ? std::string( "Task " ) + boost::lexical_cast<std::string>( m_nextTaskID ) : taskName ), m_nextTaskID, programPath, programArguments, filesToUpload, computersWillBeUsed, autoFree, startAfterCreating );
                 ++m_nextTaskID;
             }
             else if ( arg[ 0 ].argument == "start" || arg[ 0 ].argument == "stop" || arg[ 0 ].argument == "discard" || arg[ 0 ].argument == "status" ) {
@@ -339,7 +339,7 @@ void Client::saveRemotePCs( const std::string& fileToSave ) {
     }
 }
 
-void Client::newTask( const std::string& taskName, size_t taskID, const std::string & filePath, const std::string & arguments, const std::string& fileToUpload, int computersToUse, bool autoFree, bool startAfterCreating ) {
+void Client::newTask( const std::string& taskName, size_t taskID, const std::string & filePath, const std::string & arguments, const std::vector<std::string>& filesToUpload, int computersToUse, bool autoFree, bool startAfterCreating ) {
     if ( computersToUse > m_freePC.size() ) {
         return;
     }
@@ -347,7 +347,7 @@ void Client::newTask( const std::string& taskName, size_t taskID, const std::str
 
     // Creating working PC List
     PCList listForTask;
-    for ( int i = 0; i < computersToUse; ++i ) {
+    for ( size_t i = 0; i < computersToUse; ++i ) {
         if ( ( *m_freePC.begin() )->status() == NotConencted ) {
             m_notConnectedPC.insert( *m_freePC.begin() );
             m_freePC.erase( m_freePC.begin() );
@@ -372,10 +372,11 @@ void Client::newTask( const std::string& taskName, size_t taskID, const std::str
     }
 
     // Uploading file to FTP
-    if ( !fileToUpload.empty() ) {
-        FtpClient ftp( m_ftpHost, m_ftpLogin, m_ftpPassword );
+    if ( !filesToUpload.empty() ) {
         try {
-            commands.push_back( boost::str( boost::format( "Download %1%" ) % ( ftp.upload( fileToUpload ) ) ) );
+            FtpClient ftp( m_ftpHost, m_ftpLogin, m_ftpPassword );
+            for ( size_t i = 0; i < filesToUpload.size(); ++i )
+                commands.push_back( boost::str( boost::format( "Download %1%" ) % ( ftp.upload( filesToUpload[ i ] ) ) ) );
         }
         catch ( std::exception& e ) {
             m_info.error( "Cannot upload file to FTP! Task won't be created." );

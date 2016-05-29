@@ -28,7 +28,7 @@ namespace EXider {
         void freeRemotePC( const boost::shared_ptr<RemotePC>& pc );
 
         // Tasks
-        void newTask( const std::string& taskName, size_t taskID, const std::string& filePath, const std::string& arguments, const std::string& fileToUpload, int computersToUse, bool autoFree, bool startAfterCreating );
+        void newTask( const std::string& taskName, size_t taskID, const std::string& filePath, const std::string& arguments, const std::vector<std::string>& filesToUpload, int computersToUse, bool autoFree, bool startAfterCreating );
         void startTasks( std::set<boost::shared_ptr<Task> >& tasksToStart );
         void stopTasks( std::set<boost::shared_ptr<Task> >& tasksToStart );
         void discardTasks( std::set<boost::shared_ptr<Task> >& tasksToStart );
